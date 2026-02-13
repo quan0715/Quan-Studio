@@ -1,0 +1,108 @@
+services:
+  next:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quan-studio-next:prod
+    container_name: quan_studio_next_prod
+    env_file:
+      - ./docker/prod.env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://example.com}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads_data:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const socket=net.createConnection({host:'127.0.0.1',port:3000});socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2000);\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    image: quan-studio-next:prod
+    container_name: quan_studio_worker_prod
+    command:
+      - sh
+      - -lc
+      - |
+        until curl -fsS http://next:3000/api/health >/dev/null; do
+          sleep 2
+        done
+
+        active_interval_ms="$${NOTION_SYNC_ACTIVE_POLL_INTERVAL_MS:-1000}"
+        idle_interval_ms="$${NOTION_SYNC_IDLE_POLL_INTERVAL_MS:-15000}"
+
+        active_interval_sec=$$(expr "$$active_interval_ms" / 1000)
+        if [ "$$active_interval_sec" -lt 1 ]; then
+          active_interval_sec=1
+        fi
+
+        idle_interval_sec=$$(expr "$$idle_interval_ms" / 1000)
+        if [ "$$idle_interval_sec" -lt 1 ]; then
+          idle_interval_sec=1
+        fi
+
+        while true; do
+          response=$$(curl -fsS -X POST http://next:3000/api/studio/sync-jobs/process-next || true)
+          if [ -n "$$response" ] && echo "$$response" | grep -q '"processed":true'; then
+            sleep "$$active_interval_sec"
+          else
+            sleep "$$idle_interval_sec"
+          fi
+        done
+    env_file:
+      - ./docker/prod.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-https://example.com}
+    depends_on:
+      next:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: quan_studio_postgres_prod
+    env_file:
+      - ./docker/prod.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quan}
+      POSTGRES_DB: ${POSTGRES_DB:-quan_studio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quan} -d ${POSTGRES_DB:-quan_studio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2024.12.2
+    container_name: quan_studio_cloudflared_prod
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN:?CLOUDFLARED_TOKEN is required}
+    depends_on:
+      next:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  uploads_data:

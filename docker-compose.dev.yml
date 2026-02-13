@@ -1,0 +1,110 @@
+services:
+  next:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: quan_studio_next_dev
+    command:
+      - sh
+      - -lc
+      - npm run prisma:generate && npm run prisma:migrate:deploy && npm run dev -- --hostname 0.0.0.0 --port 3000
+    env_file:
+      - ./docker/dev.env
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quan}:${POSTGRES_PASSWORD:-quan}@postgres:5432/${POSTGRES_DB:-quan_studio}
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    volumes:
+      - ./:/app
+      - next_node_modules:/app/node_modules
+      - next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const socket=net.createConnection({host:'127.0.0.1',port:3000});socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),2000);\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    image: quan-studio-next
+    container_name: quan_studio_worker_dev
+    command:
+      - sh
+      - -lc
+      - |
+        until curl -fsS http://next:3000/api/health >/dev/null; do
+          sleep 2
+        done
+
+        active_interval_ms="$${NOTION_SYNC_ACTIVE_POLL_INTERVAL_MS:-1000}"
+        idle_interval_ms="$${NOTION_SYNC_IDLE_POLL_INTERVAL_MS:-15000}"
+
+        active_interval_sec=$$(expr "$$active_interval_ms" / 1000)
+        if [ "$$active_interval_sec" -lt 1 ]; then
+          active_interval_sec=1
+        fi
+
+        idle_interval_sec=$$(expr "$$idle_interval_ms" / 1000)
+        if [ "$$idle_interval_sec" -lt 1 ]; then
+          idle_interval_sec=1
+        fi
+
+        while true; do
+          response=$$(curl -fsS -X POST http://next:3000/api/studio/sync-jobs/process-next || true)
+          if [ -n "$$response" ] && echo "$$response" | grep -q '"processed":true'; then
+            sleep "$$active_interval_sec"
+          else
+            sleep "$$idle_interval_sec"
+          fi
+        done
+    env_file:
+      - ./docker/dev.env
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-quan}:${POSTGRES_PASSWORD:-quan}@postgres:5432/${POSTGRES_DB:-quan_studio}
+      NEXT_PUBLIC_SITE_URL: http://next:3000
+    volumes:
+      - ./:/app
+      - next_node_modules:/app/node_modules
+      - next_cache:/app/.next
+    depends_on:
+      next:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: quan_studio_postgres_dev
+    env_file:
+      - ./docker/dev.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-quan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quan}
+      POSTGRES_DB: ${POSTGRES_DB:-quan_studio}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quan} -d ${POSTGRES_DB:-quan_studio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  next_node_modules:
+  next_cache:

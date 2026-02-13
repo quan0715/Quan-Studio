@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostStatus {
+  draft
+  published
+}
+
+enum NotionSyncJobStatus {
+  pending
+  processing
+  succeeded
+  failed
+}
+
+enum NotionSyncTrigger {
+  button
+  manual
+  retry
+}
+
+model Post {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String
+  slug               String     @unique
+  excerpt            String?
+  tags               String[]   @default([])
+  status             PostStatus @default(draft)
+  contentJson        Json       @map("content_json")
+  coverUrl           String?    @map("cover_url")
+  publishedAt        DateTime?  @map("published_at")
+  notionPageId       String     @unique @map("notion_page_id")
+  notionLastEditedAt DateTime?  @map("notion_last_edited_at")
+  syncedAt           DateTime?  @map("synced_at")
+  syncError          String?    @map("sync_error")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([publishedAt])
+  @@index([syncedAt])
+  @@map("posts")
+}
+
+model NotionSyncJob {
+  id           String              @id @default(cuid())
+  pageId       String              @map("page_id")
+  triggerType  NotionSyncTrigger   @map("trigger_type")
+  status       NotionSyncJobStatus @default(pending)
+  attempt      Int                 @default(0)
+  maxAttempts  Int                 @default(5) @map("max_attempts")
+  nextRunAt    DateTime?           @map("next_run_at")
+  lockedAt     DateTime?           @map("locked_at")
+  lockedBy     String?             @map("locked_by")
+  payloadJson  Json?               @map("payload_json")
+  dedupeKey    String              @unique @map("dedupe_key")
+  errorMessage String?             @map("error_message")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, nextRunAt])
+  @@index([updatedAt])
+  @@map("notion_sync_jobs")
+}
+
+model IntegrationConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@map("integration_configs")
+}

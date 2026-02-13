@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+set -eu
+
+remote_name="${1:-origin}"
+should_check=0
+
+while read -r local_ref local_sha remote_ref remote_sha
+do
+  if [ "${remote_ref}" = "refs/heads/main" ]; then
+    should_check=1
+    break
+  fi
+done
+
+if [ "${should_check}" -eq 1 ]; then
+  echo "[husky] pushing to main, checking required GitHub Secrets..."
+  bash scripts/check-github-secrets.sh "${remote_name}"
+else
+  echo "[husky] push target is not main, skip GitHub Secrets check."
+fi

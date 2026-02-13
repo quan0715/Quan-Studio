@@ -1,0 +1,57 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+.pnpm-store/
+.npm/
+
+# yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# build outputs
+.next/
+out/
+build/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# runtime/temp
+tmp/
+temp/
+*.tmp
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# environment and secrets
+.env
+.env.*
+!.env.example
+docker/*.env
+!docker/*.env.example
+
+# deployment metadata
+.vercel/
+
+# local editor/system
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# misc
+*.pem

@@ -1,16 +1,19 @@
 name: CD Prod
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
 
 concurrency:
-  group: cd-prod
+  group: cd-prod-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -19,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Validate required secrets
         run: |
@@ -66,7 +71,7 @@ jobs:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           tailscale ssh "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "chmod +x /tmp/quan-deploy-prod.sh && /tmp/quan-deploy-prod.sh '$PROD_DEPLOY_PATH' '$GITHUB_SHA'"

@@ -132,7 +132,7 @@ Quality gates:
 
 ### CD (`.github/workflows/cd-prod.yml`)
 
-Triggered on `push` to `main`.
+Triggered after `CI` completed with `success` on `main`.
 
 Deploys over Tailscale SSH by uploading and executing `scripts/deploy-prod.sh`.
 

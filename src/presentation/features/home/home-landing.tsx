@@ -26,7 +26,7 @@ type GalleryBlock = {
   tone?: "light" | "accent" | "dark" | "image";
   tags?: string[];
   links?: Array<{ label: string; href: string }>;
-  visual?: "playful-svg";
+  visual?: "playful-svg" | "creative-icons";
 };
 
 const quickStats = [
@@ -85,11 +85,14 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
     },
     {
       id: "skills",
-      title: "# 快速摘要",
-      description: profileTags.map((tag) => `# ${tag}`).join("  "),
+      title: "Creative Signal",
+      subtitle: "Creative Focus",
+      description: "把設計語言、產品邏輯與工程實作整合成一致體驗。",
       column: 1,
       size: "lg",
       tone: "light",
+      visual: "creative-icons",
+      tags: profileTags,
     },
     {
       id: "social",
@@ -334,6 +337,26 @@ export function HomeLanding({ latestPosts }: HomeLandingProps) {
                         <circle cx="156" cy="74" r="9" fill="#60a5fa" opacity="0.75" />
                         <rect x="236" y="18" width="38" height="38" rx="8" fill="none" stroke="#34d399" strokeWidth="3" />
                       </svg>
+                    </div>
+                  ) : null}
+
+                  {block.visual === "creative-icons" ? (
+                    <div className="mt-auto grid grid-cols-3 gap-2">
+                      <div className="flex h-14 items-center justify-center rounded-lg border bg-background/70">
+                        <svg viewBox="0 0 24 24" className="h-7 w-7 text-primary">
+                          <path fill="currentColor" d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6L12 2z" />
+                        </svg>
+                      </div>
+                      <div className="flex h-14 items-center justify-center rounded-lg border bg-background/70">
+                        <svg viewBox="0 0 24 24" className="h-7 w-7 text-primary">
+                          <path fill="currentColor" d="M4 16c0 2.2 1.8 4 4 4h8a4 4 0 0 0 0-8h-1.2A5.8 5.8 0 0 0 4 13.8V16zm7-9.5L9.5 8l6.5 6.5L17.5 13L11 6.5z" />
+                        </svg>
+                      </div>
+                      <div className="flex h-14 items-center justify-center rounded-lg border bg-background/70">
+                        <svg viewBox="0 0 24 24" className="h-7 w-7 text-primary">
+                          <path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-2-1.6-3.6-3.6-3.6h-2.1a1.8 1.8 0 0 1 0-3.6h1A4.3 4.3 0 0 0 12 3zM7 12a1.2 1.2 0 1 1 0 2.4A1.2 1.2 0 0 1 7 12zm4-4a1.2 1.2 0 1 1 0 2.4A1.2 1.2 0 0 1 11 8z" />
+                        </svg>
+                      </div>
                     </div>
                   ) : null}
 

@@ -56,7 +56,9 @@ services:
         fi
 
         while true; do
-          response=$$(curl -fsS -X POST http://next:3000/api/studio/sync-jobs/process-next || true)
+          response=$$(curl -fsS -X POST \
+            -H "x-studio-internal-token: $$STUDIO_SESSION_SECRET" \
+            http://next:3000/api/studio/sync-jobs/process-next || true)
           if [ -n "$$response" ] && echo "$$response" | grep -q '"processed":true'; then
             sleep "$$active_interval_sec"
           else

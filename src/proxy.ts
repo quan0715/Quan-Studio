@@ -9,8 +9,13 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const isStudioPage = pathname.startsWith("/studio");
   const isStudioApi = pathname.startsWith("/api/studio");
+  const isProcessNextApi = pathname === "/api/studio/sync-jobs/process-next";
 
   if (!isStudioPage && !isStudioApi) {
+    return NextResponse.next();
+  }
+
+  if (isProcessNextApi && isInternalWorkerRequest(request)) {
     return NextResponse.next();
   }
 
@@ -52,6 +57,16 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const loginUrl = new URL("/studio/login", request.url);
   loginUrl.searchParams.set("next", pathname);
   return NextResponse.redirect(loginUrl);
+}
+
+function isInternalWorkerRequest(request: NextRequest): boolean {
+  const configuredSecret = (process.env.STUDIO_SESSION_SECRET ?? "").trim();
+  if (!configuredSecret) {
+    return false;
+  }
+
+  const incomingSecret = (request.headers.get("x-studio-internal-token") ?? "").trim();
+  return incomingSecret.length > 0 && incomingSecret === configuredSecret;
 }
 
 export const config = {

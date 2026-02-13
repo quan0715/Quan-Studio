@@ -21,7 +21,8 @@ type GalleryBlock = {
   description?: string;
   href?: string;
   cta?: string;
-  className: string;
+  column: 1 | 2 | 3;
+  size?: "sm" | "md" | "lg";
   tone?: "light" | "accent" | "dark" | "image";
   tags?: string[];
   links?: Array<{ label: string; href: string }>;
@@ -56,6 +57,18 @@ function blockToneClassName(tone: GalleryBlock["tone"]): string {
   }
 }
 
+function blockHeightClassName(size: GalleryBlock["size"] = "md"): string {
+  switch (size) {
+    case "sm":
+      return "min-h-[130px] md:h-[130px]";
+    case "lg":
+      return "min-h-[220px] md:h-[220px]";
+    case "md":
+    default:
+      return "min-h-[180px] md:h-[180px]";
+  }
+}
+
 function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
   const latest = latestPosts[0] ?? null;
   const secondLatest = latestPosts[1] ?? null;
@@ -66,48 +79,16 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       title: "我是 Quan",
       subtitle: "Designer & Developer",
       description: "產品導向的全端工程師，專注把想法交付成可維運的系統。",
-      className: "md:col-span-4 md:row-span-2",
+      column: 1,
+      size: "lg",
       tone: "accent",
-    },
-    {
-      id: "resume",
-      title: "完整履歷",
-      subtitle: "Section > Group > Item",
-      description: "以模組化結構管理履歷內容，下一步可直接接 Notion 同步資料。",
-      href: "/resume",
-      cta: "查看履歷",
-      className: "md:col-span-4",
-      tone: "dark",
-    },
-    {
-      id: "ibm",
-      title: "IBM TW",
-      subtitle: "Associate Application Consultant Intern",
-      description: "2023/6 - Present",
-      className: "md:col-span-4",
-      tone: "light",
-      tags: ["Consultant", "ESG Platform"],
-    },
-    {
-      id: "nycu",
-      title: "NYCU CS 碩士",
-      subtitle: "國立陽明交通大學",
-      description: "資訊科學與工程研究所",
-      className: "md:col-span-3 md:row-span-1",
-      tone: "light",
-    },
-    {
-      id: "taiwan",
-      title: "來自 Taiwan",
-      subtitle: "Build for global users",
-      className: "md:col-span-3 md:row-span-1",
-      tone: "light",
     },
     {
       id: "skills",
       title: "# 快速摘要",
       description: profileTags.map((tag) => `# ${tag}`).join("  "),
-      className: "md:col-span-3 md:row-span-2",
+      column: 1,
+      size: "lg",
       tone: "light",
     },
     {
@@ -115,7 +96,8 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       title: "快速社群連結",
       subtitle: "Connect",
       description: "快速找到我在不同平台上的最新內容與聯繫方式。",
-      className: "md:col-span-3 md:row-span-1",
+      column: 1,
+      size: "md",
       tone: "light",
       links: [
         { label: "GitHub", href: "https://github.com/" },
@@ -125,21 +107,44 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       ],
     },
     {
+      id: "resume",
+      title: "完整履歷",
+      subtitle: "Section > Group > Item",
+      description: "以模組化結構管理履歷內容，下一步可直接接 Notion 同步資料。",
+      href: "/resume",
+      cta: "查看履歷",
+      column: 2,
+      size: "md",
+      tone: "dark",
+    },
+    {
+      id: "ibm",
+      title: "IBM TW",
+      subtitle: "Associate Application Consultant Intern",
+      description: "2023/6 - Present",
+      column: 2,
+      size: "lg",
+      tone: "light",
+      tags: ["Consultant", "ESG Platform"],
+    },
+    {
+      id: "nycu",
+      title: "NYCU CS 碩士",
+      subtitle: "國立陽明交通大學",
+      description: "資訊科學與工程研究所",
+      column: 2,
+      size: "lg",
+      tone: "light",
+    },
+    {
       id: "playful-svg",
       title: "Creative Signal",
       subtitle: "Handmade SVG",
       description: "用一點抽象線條表現設計與工程並行的節奏。",
-      className: "md:col-span-3 md:row-span-1",
+      column: 3,
+      size: "md",
       tone: "dark",
       visual: "playful-svg",
-    },
-    {
-      id: "automation",
-      title: "Notion → Web 同步",
-      subtitle: "Webhook + Queue + Worker",
-      description: "遞迴同步 block 與 rich text annotations，維持內容即時一致。",
-      className: "md:col-span-3",
-      tone: "dark",
     },
     {
       id: "blog-1",
@@ -148,7 +153,8 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       description: latest?.excerpt ?? "記錄系統設計、同步流程與實作細節。",
       href: latest ? `/blog/${latest.slug}` : "/blog",
       cta: latest ? "閱讀最新文章" : "瀏覽 Blog",
-      className: "md:col-span-6 md:row-span-2",
+      column: 3,
+      size: "lg",
       tone: "image",
     },
     {
@@ -158,7 +164,8 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       description: secondLatest?.excerpt ?? "更多內容與技術筆記，持續更新中。",
       href: secondLatest ? `/blog/${secondLatest.slug}` : "/blog",
       cta: secondLatest ? "閱讀第二新文章" : "瀏覽全部文章",
-      className: "md:col-span-6 md:row-span-2",
+      column: 3,
+      size: "lg",
       tone: "image",
     },
   ];
@@ -166,6 +173,14 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
 
 export function HomeLanding({ latestPosts }: HomeLandingProps) {
   const blocks = useMemo(() => buildGalleryBlocks(latestPosts), [latestPosts]);
+  const blocksByColumn = useMemo(
+    () => ({
+      1: blocks.filter((block) => block.column === 1),
+      2: blocks.filter((block) => block.column === 2),
+      3: blocks.filter((block) => block.column === 3),
+    }),
+    [blocks]
+  );
   const galleryRef = useRef<HTMLElement | null>(null);
   const [isGalleryVisible, setIsGalleryVisible] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
@@ -276,12 +291,16 @@ export function HomeLanding({ latestPosts }: HomeLandingProps) {
           </p>
         </div>
 
-        <div className="grid auto-rows-[minmax(170px,auto)] gap-4 md:grid-cols-12">
-          {blocks.map((block, index) => {
+        <div className="grid gap-4 lg:grid-cols-3">
+          {([1, 2, 3] as const).map((column) => (
+            <div key={`column-${column}`} className="space-y-4">
+              {blocksByColumn[column].map((block) => {
+                const index = blocks.findIndex((item) => item.id === block.id);
             const content = (
               <Card
                 className={cn(
                   "h-full overflow-hidden rounded-3xl border p-0 transition-all duration-700",
+                  blockHeightClassName(block.size),
                   blockToneClassName(block.tone),
                   isGalleryVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
                 )}
@@ -295,7 +314,7 @@ export function HomeLanding({ latestPosts }: HomeLandingProps) {
                   ) : null}
                   <h3 className="text-xl font-semibold leading-tight sm:text-2xl">{block.title}</h3>
                   {block.description ? (
-                    <p className={cn("text-sm leading-7", block.tone === "image" ? "text-zinc-200/95" : "text-muted-foreground")}>
+                    <p className={cn("line-clamp-4 text-sm leading-7", block.tone === "image" ? "text-zinc-200/95" : "text-muted-foreground")}>
                       {block.description}
                     </p>
                   ) : null}
@@ -359,20 +378,22 @@ export function HomeLanding({ latestPosts }: HomeLandingProps) {
 
             if (!block.href) {
               return (
-                <div key={block.id} className={block.className}>
+                <div key={block.id}>
                   {content}
                 </div>
               );
             }
 
             return (
-              <Link key={block.id} href={block.href} className={cn("group block", block.className)}>
+              <Link key={block.id} href={block.href} className="group block">
                 <div className="h-full transition-transform duration-300 group-hover:scale-[1.01]">
                   {content}
                 </div>
               </Link>
             );
-          })}
+              })}
+            </div>
+          ))}
         </div>
       </section>
     </div>

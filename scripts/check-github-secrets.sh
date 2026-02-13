@@ -9,7 +9,6 @@ required_secrets=(
   "PROD_SSH_HOST"
   "PROD_SSH_USER"
   "PROD_DEPLOY_PATH"
-  "CLOUDFLARED_TOKEN"
 )
 
 if ! command -v gh >/dev/null 2>&1; then

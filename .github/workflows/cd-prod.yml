@@ -29,7 +29,6 @@ jobs:
             PROD_SSH_HOST
             PROD_SSH_USER
             PROD_DEPLOY_PATH
-            CLOUDFLARED_TOKEN
           )
           for key in "${required[@]}"; do
             value="${!key:-}"
@@ -44,7 +43,6 @@ jobs:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
-          CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
@@ -69,7 +67,6 @@ jobs:
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
           GITHUB_SHA: ${{ github.sha }}
-          CLOUDFLARED_TOKEN: ${{ secrets.CLOUDFLARED_TOKEN }}
         run: |
           tailscale ssh "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "chmod +x /tmp/quan-deploy-prod.sh && /tmp/quan-deploy-prod.sh '$PROD_DEPLOY_PATH' '$GITHUB_SHA'"

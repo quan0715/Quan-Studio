@@ -143,7 +143,8 @@ Required GitHub Secrets:
 - `PROD_SSH_HOST`
 - `PROD_SSH_USER`
 - `PROD_DEPLOY_PATH`
-- `CLOUDFLARED_TOKEN`
+
+`CLOUDFLARED_TOKEN` is runtime-only and should be set in server `docker/prod.env`.
 
 ### Local pre-push gate (Husky)
 

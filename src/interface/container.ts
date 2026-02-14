@@ -38,48 +38,56 @@ declare global {
   var __quanStudioContainer: Container | undefined;
 }
 
-export function getContainer(): Container {
-  if (!isContainerInitialized(globalThis.__quanStudioContainer)) {
-    const postRepository = new PrismaPostRepository();
-    const notionSyncJobRepository = new PrismaNotionSyncJobRepository();
-    const integrationConfigRepository = new PrismaIntegrationConfigRepository();
-    const notionClient = new NotionClient();
-    const getStudioNotionSettingsUseCase = new GetStudioNotionSettingsUseCase(
-      integrationConfigRepository
-    );
-    const updateStudioNotionSettingsUseCase = new UpdateStudioNotionSettingsUseCase(
-      integrationConfigRepository
-    );
-    const testStudioNotionSettingsUseCase = new TestStudioNotionSettingsUseCase(
-      notionClient,
-      getStudioNotionSettingsUseCase
-    );
+function createContainer(): Container {
+  const postRepository = new PrismaPostRepository();
+  const notionSyncJobRepository = new PrismaNotionSyncJobRepository();
+  const integrationConfigRepository = new PrismaIntegrationConfigRepository();
+  const notionClient = new NotionClient();
+  const getStudioNotionSettingsUseCase = new GetStudioNotionSettingsUseCase(
+    integrationConfigRepository
+  );
+  const updateStudioNotionSettingsUseCase = new UpdateStudioNotionSettingsUseCase(
+    integrationConfigRepository
+  );
+  const testStudioNotionSettingsUseCase = new TestStudioNotionSettingsUseCase(
+    notionClient,
+    getStudioNotionSettingsUseCase
+  );
 
-    globalThis.__quanStudioContainer = {
-      listStudioPostsUseCase: new ListStudioPostsUseCase(postRepository),
-      getStudioPostByNotionPageIdUseCase: new GetStudioPostByNotionPageIdUseCase(postRepository),
-      listPublicPostsUseCase: new ListPublicPostsUseCase(postRepository),
-      getPublicPostBySlugUseCase: new GetPublicPostBySlugUseCase(postRepository),
-      enqueueNotionSyncJobUseCase: new EnqueueNotionSyncJobUseCase(notionSyncJobRepository),
-      processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
-        notionSyncJobRepository,
-        postRepository,
-        notionClient
-      ),
-      listNotionSyncJobsUseCase: new ListNotionSyncJobsUseCase(notionSyncJobRepository),
-      listNotionDataSourcePagesUseCase: new ListNotionDataSourcePagesUseCase(
-        notionClient,
-        integrationConfigRepository
-      ),
-      listNotionResumeDataSourceUseCase: new ListNotionResumeDataSourceUseCase(
-        notionClient,
-        integrationConfigRepository
-      ),
-      retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository),
-      getStudioNotionSettingsUseCase,
-      updateStudioNotionSettingsUseCase,
-      testStudioNotionSettingsUseCase,
-    };
+  return {
+    listStudioPostsUseCase: new ListStudioPostsUseCase(postRepository),
+    getStudioPostByNotionPageIdUseCase: new GetStudioPostByNotionPageIdUseCase(postRepository),
+    listPublicPostsUseCase: new ListPublicPostsUseCase(postRepository),
+    getPublicPostBySlugUseCase: new GetPublicPostBySlugUseCase(postRepository),
+    enqueueNotionSyncJobUseCase: new EnqueueNotionSyncJobUseCase(notionSyncJobRepository),
+    processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
+      notionSyncJobRepository,
+      postRepository,
+      notionClient
+    ),
+    listNotionSyncJobsUseCase: new ListNotionSyncJobsUseCase(notionSyncJobRepository),
+    listNotionDataSourcePagesUseCase: new ListNotionDataSourcePagesUseCase(
+      notionClient,
+      integrationConfigRepository
+    ),
+    listNotionResumeDataSourceUseCase: new ListNotionResumeDataSourceUseCase(
+      notionClient,
+      integrationConfigRepository
+    ),
+    retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository),
+    getStudioNotionSettingsUseCase,
+    updateStudioNotionSettingsUseCase,
+    testStudioNotionSettingsUseCase,
+  };
+}
+
+export function getContainer(): Container {
+  if (process.env.NODE_ENV !== "production") {
+    return createContainer();
+  }
+
+  if (!isContainerInitialized(globalThis.__quanStudioContainer)) {
+    globalThis.__quanStudioContainer = createContainer();
   }
 
   return globalThis.__quanStudioContainer;

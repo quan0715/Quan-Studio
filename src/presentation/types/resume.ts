@@ -1,6 +1,7 @@
 export type ResumeItem = {
   id: string;
   title: string;
+  logoUrl?: string;
   period?: string;
   organization?: string;
   subtitle?: string;

@@ -58,6 +58,8 @@
 4. 封面來源為 Notion `Page Cover`，不使用自訂 `Cover` property。
 5. 標題需渲染 Notion `Page Icon`（emoji 或 icon URL）。
 6. slug 不存在顯示 404。
+7. Resume 頁面期間文字由 Resume `Date` 欄位渲染（`start - end`，無 `end` 顯示 `Present`）。
+8. Resume 前端僅依賴新 schema，不處理舊欄位相容。
 
 ### 5.2 Studio（Sync Monitor）
 1. 任務欄位至少顯示：`status`、`pageId`、`attempt`、`updatedAt`、`errorMessage`。

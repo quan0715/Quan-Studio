@@ -97,7 +97,27 @@
 2. `GET /api/public/posts/:slug`
 3. `GET /api/public/resume`
 
-### 6.5 Health
+### 6.5 Resume Data Source（固定 schema）
+1. Resume 轉換僅支援以下 Notion properties：
+   - `Name`（title）
+   - `Section`（select）
+   - `Group`（rich_text）
+   - `Summary`（rich_text）
+   - `Date`（date）
+   - `Tags`（multi_select）
+   - `Visibility`（select, `Public`/`Private`）
+   - `Section Order`（number）
+   - `Group Order`（number）
+   - `Item Order`（number）
+   - `Logo`（files）
+2. 不再支援舊欄位 fallback（例如 `Start Date`、`End Date`、`Current`、`Sort`、`Highlights`、`Organization`、`Role`）。
+3. `period` 由 `Date` 產生，`end` 為空時顯示 `Present`。
+4. 排序規則固定為：
+   - `Section Order`（升冪）
+   - `Group Order`（升冪）
+   - `Item Order`（升冪，若缺值則依 `Date.start` 新到舊）
+
+### 6.6 Health
 1. `GET /api/health`
 
 ## 7. 錯誤碼（最小集合）

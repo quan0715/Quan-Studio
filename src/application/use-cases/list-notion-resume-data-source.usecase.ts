@@ -15,18 +15,21 @@ type ResumeRow = {
   section: string;
   group: string;
   name: string;
+  logoUrl: string | null;
   summary: string | null;
-  organization: string | null;
-  role: string | null;
   period: string | null;
+  periodSortIso: string | null;
   bullets: string[];
   tags: string[];
-  sort: number;
+  sectionOrder: number;
+  groupOrder: number;
+  itemOrder: number | null;
 };
 
 export type ResumeItemOutput = {
   id: string;
   title: string;
+  logoUrl?: string;
   period?: string;
   organization?: string;
   subtitle?: string;
@@ -55,6 +58,19 @@ type MutableResumeSection = ResumeSectionOutput & {
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DEFAULT_SECTION_ORDER: Record<string, number> = {
+  about: 10,
+  "work-experience": 20,
+  experience: 20,
+  projects: 30,
+  project: 30,
+  education: 40,
+  skills: 50,
+  awards: 60,
+  award: 60,
+  certifications: 70,
+  certification: 70,
+};
 
 export class ListNotionResumeDataSourceUseCase {
   constructor(
@@ -88,12 +104,7 @@ export class ListNotionResumeDataSourceUseCase {
     const rows = pages
       .map((page) => toResumeRow(page))
       .filter((row): row is ResumeRow => row !== null)
-      .sort((a, b) => {
-        if (a.sort !== b.sort) {
-          return a.sort - b.sort;
-        }
-        return a.name.localeCompare(b.name);
-      });
+      .sort(compareResumeRows);
 
     return toSections(rows);
   }
@@ -118,27 +129,31 @@ function toResumeRow(page: Record<string, unknown>): ResumeRow | null {
   const section = extractSelectName(properties, "Section") ?? "General";
   const group = extractRichText(properties, "Group") ?? "General";
   const name = extractTitle(properties, "Name") ?? "Untitled";
+  const logoUrl = extractFileObjectUrl(page.icon);
   const summary = extractRichText(properties, "Summary");
-  const organization = extractRichText(properties, "Organization");
-  const role = extractRichText(properties, "Role");
-  const highlights = extractRichText(properties, "Highlights");
-  const period = extractPeriod(properties, highlights);
-  const bullets = extractHighlightsBullets(highlights);
+  const periodData = extractPeriodData(properties);
+  const period = periodData.label;
+  const periodSortIso = periodData.sortIso;
+  const bullets = extractSummaryBullets(summary);
   const tags = extractMultiSelectNames(properties, "Tags");
-  const sort = extractNumber(properties, "Sort") ?? Number.MAX_SAFE_INTEGER;
+  const sectionOrder = extractNumber(properties, "Section Order") ?? defaultSectionOrder(section);
+  const groupOrder = extractNumber(properties, "Group Order") ?? Number.MAX_SAFE_INTEGER;
+  const itemOrder = extractNumber(properties, "Item Order");
 
   return {
     pageId,
     section,
     group,
     name,
+    logoUrl,
     summary,
-    organization,
-    role,
     period,
+    periodSortIso,
     bullets,
     tags,
-    sort,
+    sectionOrder,
+    groupOrder,
+    itemOrder,
   };
 }
 
@@ -211,11 +226,8 @@ function toResumeItem(row: ResumeRow): ResumeItemOutput {
   if (row.period) {
     item.period = row.period;
   }
-  if (row.organization) {
-    item.organization = row.organization;
-  }
-  if (row.role) {
-    item.subtitle = row.role;
+  if (row.logoUrl) {
+    item.logoUrl = row.logoUrl;
   }
   if (row.summary) {
     item.summary = row.summary;
@@ -230,45 +242,71 @@ function toResumeItem(row: ResumeRow): ResumeItemOutput {
   return item;
 }
 
-function extractPeriod(properties: Record<string, unknown>, highlights: string | null): string | null {
-  const start = extractDateStart(properties, "Start Date");
-  const end = extractDateStart(properties, "End Date");
-  const current = extractCheckbox(properties, "Current");
-
-  const startLabel = start ? formatDateLabel(start) : null;
-  const endLabel = current ? "Present" : end ? formatDateLabel(end) : null;
-
-  if (startLabel && endLabel) {
-    return `${startLabel} - ${endLabel}`;
+function compareResumeRows(a: ResumeRow, b: ResumeRow): number {
+  if (a.sectionOrder !== b.sectionOrder) {
+    return a.sectionOrder - b.sectionOrder;
   }
-  if (startLabel) {
-    return startLabel;
-  }
-  if (endLabel) {
-    return endLabel;
+  if (a.section !== b.section) {
+    return a.section.localeCompare(b.section);
   }
 
-  if (highlights) {
-    const firstLine = highlights.split("\n")[0]?.trim() ?? "";
-    if (firstLine.toLowerCase().startsWith("period:")) {
-      const raw = firstLine.slice("period:".length).trim();
-      return raw || null;
-    }
+  if (a.groupOrder !== b.groupOrder) {
+    return a.groupOrder - b.groupOrder;
+  }
+  if (a.group !== b.group) {
+    return a.group.localeCompare(b.group);
   }
 
-  return null;
+  if (a.itemOrder !== null && b.itemOrder !== null && a.itemOrder !== b.itemOrder) {
+    return a.itemOrder - b.itemOrder;
+  }
+  if (a.itemOrder !== null && b.itemOrder === null) {
+    return -1;
+  }
+  if (a.itemOrder === null && b.itemOrder !== null) {
+    return 1;
+  }
+
+  const aTimestamp = parseIsoToTimestamp(a.periodSortIso);
+  const bTimestamp = parseIsoToTimestamp(b.periodSortIso);
+  if (aTimestamp !== bTimestamp) {
+    return bTimestamp - aTimestamp;
+  }
+
+  return a.name.localeCompare(b.name);
 }
 
-function extractHighlightsBullets(highlights: string | null): string[] {
-  if (!highlights) {
+function extractPeriodData(properties: Record<string, unknown>): { label: string | null; sortIso: string | null } {
+  const range = extractDateRange(properties, "Date");
+  if (range.start || range.end) {
+    return {
+      label: formatPeriodLabel(range.start, range.end),
+      sortIso: range.start ?? range.end,
+    };
+  }
+
+  return { label: null, sortIso: null };
+}
+
+function extractSummaryBullets(summary: string | null): string[] {
+  if (!summary) {
     return [];
   }
 
-  return highlights
+  const lines = summary
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.toLowerCase().startsWith("period:"))
-    .map((line) => line.replace(/^[-*•]\s*/, ""));
+    .map((line) => line.trim());
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const hasExplicitBullets = lines.some((line) => /^[-*•]\s+/.test(line));
+  if (!hasExplicitBullets && lines.length === 1) {
+    return [];
+  }
+
+  return lines.map((line) => line.replace(/^[-*•]\s*/, ""));
 }
 
 function formatDateLabel(value: string): string {
@@ -278,6 +316,44 @@ function formatDateLabel(value: string): string {
   }
 
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
+function formatPeriodLabel(start: string | null, end: string | null): string | null {
+  const startLabel = start ? formatDateLabel(start) : null;
+  const endLabel = end ? formatDateLabel(end) : null;
+
+  if (startLabel && endLabel) {
+    return `${startLabel} - ${endLabel}`;
+  }
+  if (startLabel && !endLabel) {
+    return `${startLabel} - Present`;
+  }
+  if (startLabel) {
+    return startLabel;
+  }
+  if (endLabel) {
+    return endLabel;
+  }
+
+  return null;
+}
+
+function parseIsoToTimestamp(value: string | null): number {
+  if (!value) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return Number.MIN_SAFE_INTEGER;
+  }
+
+  return parsed;
+}
+
+function defaultSectionOrder(section: string): number {
+  const normalized = normalizeId(section);
+  return DEFAULT_SECTION_ORDER[normalized] ?? Number.MAX_SAFE_INTEGER;
 }
 
 function normalizeId(value: string): string {
@@ -328,6 +404,39 @@ function extractRichText(properties: Record<string, unknown>, key: string): stri
   return plain || null;
 }
 
+function extractFileObjectUrl(value: unknown): string | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  if (value.type === "external" && isPlainObject(value.external)) {
+    const url = value.external.url;
+    return typeof url === "string" ? url : null;
+  }
+
+  if (value.type === "file" && isPlainObject(value.file)) {
+    const url = value.file.url;
+    return typeof url === "string" ? url : null;
+  }
+
+  if (value.type === "file_upload" && isPlainObject(value.file_upload)) {
+    const url = value.file_upload.url;
+    return typeof url === "string" ? url : null;
+  }
+
+  if (value.type === "custom_emoji" && isPlainObject(value.custom_emoji)) {
+    const url = value.custom_emoji.url;
+    return typeof url === "string" ? url : null;
+  }
+
+  const rawUrl = value.url;
+  if (typeof rawUrl === "string") {
+    return rawUrl;
+  }
+
+  return null;
+}
+
 function extractSelectName(properties: Record<string, unknown>, key: string): string | null {
   const prop = properties[key];
   if (!isPlainObject(prop) || !isPlainObject(prop.select)) {
@@ -361,21 +470,18 @@ function extractNumber(properties: Record<string, unknown>, key: string): number
   return prop.number;
 }
 
-function extractDateStart(properties: Record<string, unknown>, key: string): string | null {
+function extractDateRange(
+  properties: Record<string, unknown>,
+  key: string
+): { start: string | null; end: string | null } {
   const prop = properties[key];
   if (!isPlainObject(prop) || !isPlainObject(prop.date)) {
-    return null;
+    return { start: null, end: null };
   }
 
-  return typeof prop.date.start === "string" ? prop.date.start : null;
-}
-
-function extractCheckbox(properties: Record<string, unknown>, key: string): boolean {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || typeof prop.checkbox !== "boolean") {
-    return false;
-  }
-  return prop.checkbox;
+  const start = typeof prop.date.start === "string" ? prop.date.start : null;
+  const end = typeof prop.date.end === "string" ? prop.date.end : null;
+  return { start, end };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

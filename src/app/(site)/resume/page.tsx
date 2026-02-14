@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/components/ui/card";
 import { ResumeExportActions } from "@/presentation/features/resume/resume-export-actions";
@@ -35,37 +36,53 @@ function ResumeItemNode({
         <span className="absolute bottom-[-1.4rem] left-[0.27rem] top-[1.15rem] w-px bg-border" />
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-          Item
-        </Badge>
-        {item.period ? <p className="text-xs font-medium text-primary">{item.period}</p> : null}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {item.period ? <p className="font-medium text-primary">{item.period}</p> : null}
+        {item.organization ? <p>{item.organization}</p> : null}
       </div>
 
-      <h4 className="mt-2 text-base font-semibold">
+      <h4 className="mt-1 text-base font-semibold">
         {renderHighlightedTitle(item.title, item.highlightWord)}
       </h4>
-      {item.organization ? <p className="text-sm text-muted-foreground">{item.organization}</p> : null}
-      {item.subtitle ? <p className="text-sm text-muted-foreground">{item.subtitle}</p> : null}
-      {item.summary ? <p className="mt-2 text-sm leading-7 text-muted-foreground">{item.summary}</p> : null}
+      <div className={`mt-1 grid gap-3 ${item.logoUrl ? "grid-cols-[minmax(0,1fr)_64px] items-start md:grid-cols-[minmax(0,1fr)_72px]" : ""}`}>
+        <div>
+          {item.subtitle ? <p className="text-sm text-muted-foreground">{item.subtitle}</p> : null}
+          {item.summary ? <p className="mt-2 text-sm leading-7 text-muted-foreground">{item.summary}</p> : null}
 
-      {item.bullets?.length ? (
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {item.bullets.map((bullet) => (
-            <li key={bullet}>{bullet}</li>
-          ))}
-        </ul>
-      ) : null}
+          {item.bullets?.length ? (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {item.bullets.map((bullet) => (
+                <li key={bullet}>{bullet}</li>
+              ))}
+            </ul>
+          ) : null}
 
-      {item.keywords?.length ? (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {item.keywords.map((keyword) => (
-            <Badge key={keyword} variant="secondary">
-              {keyword}
-            </Badge>
-          ))}
+          {item.keywords?.length ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {item.keywords.map((keyword) => (
+                <Badge key={keyword} variant="secondary">
+                  {keyword}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+
+        {item.logoUrl ? (
+          <div className="flex justify-end pt-1">
+            <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/70 bg-muted/30 p-1 md:h-16 md:w-16">
+              <Image
+                src={item.logoUrl}
+                alt={`${item.title} logo`}
+                width={64}
+                height={64}
+                unoptimized
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -98,11 +115,8 @@ export default async function ResumePage() {
       <Card>
         <CardContent className="flex flex-col gap-5 p-6 md:flex-row md:items-end md:justify-between md:p-8">
           <div className="space-y-3">
-            <Badge className="w-fit">Resume</Badge>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Section → Group → Item</h1>
-            <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
-              履歷內容直接來自 Notion Resume Data Source。
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Quan Resume</h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">Notion 同步的履歷內容，可直接匯出 PDF。</p>
           </div>
           <ResumeExportActions />
         </CardContent>
@@ -122,13 +136,15 @@ export default async function ResumePage() {
           className="grid gap-4 border-t border-border/70 pt-8 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6"
         >
           <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
-            <Badge variant="outline">Section</Badge>
             <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">{section.title}</h2>
             <div className="flex flex-wrap gap-2">
               {section.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="font-normal">
+                <span
+                  key={tag}
+                  className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground"
+                >
                   #{tag}
-                </Badge>
+                </span>
               ))}
             </div>
           </aside>
@@ -136,11 +152,8 @@ export default async function ResumePage() {
           <div className="space-y-4 md:border-l md:border-border/70 md:pl-6">
             {section.groups.map((group) => (
               <Card key={group.id}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle className="text-lg md:text-xl">{group.title}</CardTitle>
-                    <Badge variant="outline">Group</Badge>
-                  </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg md:text-xl">{group.title}</CardTitle>
                   {group.description ? (
                     <p className="text-sm text-muted-foreground">{group.description}</p>
                   ) : null}

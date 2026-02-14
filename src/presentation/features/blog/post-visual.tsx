@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { ResilientNotionImage } from "@/presentation/features/notion-sync/resilient-notion-image";
 import { cn } from "@/presentation/lib/utils";
 
@@ -36,13 +35,16 @@ export function PostIcon({ post, size = "md", className }: PostIconProps) {
   if (post.pageIconUrl) {
     return (
       <span className={shapeClass}>
-        <Image
+        <ResilientNotionImage
           src={post.pageIconUrl}
           alt={`${post.title} icon`}
+          notionPageId={post.notionPageId}
           width={44}
           height={44}
           unoptimized
           className="h-full w-full object-cover"
+          fallbackClassName="h-full w-full rounded-none border-0 bg-transparent p-0 text-[10px] text-current"
+          fallbackLabel="?"
         />
       </span>
     );

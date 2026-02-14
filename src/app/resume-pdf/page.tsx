@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ResumePdfAutoPrint } from "@/presentation/features/resume/resume-pdf-autoprint";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
 import type { ResumeGroup, ResumeSection } from "@/presentation/types/resume";
@@ -136,7 +137,21 @@ export default async function ResumePdfPage({
               <div className="mt-2 space-y-2">
                 {educationItems.map((item) => (
                   <article key={item.id} className="rounded border border-neutral-200 p-2">
-                    <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
+                      {item.logoUrl ? (
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
+                          <Image
+                            src={item.logoUrl}
+                            alt={`${item.title} logo`}
+                            width={32}
+                            height={32}
+                            unoptimized
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                     <p className="mt-1 text-[10px] text-neutral-700">
                       {normalizePeriod(item.period)} · {item.subtitle}
                     </p>
@@ -217,10 +232,24 @@ export default async function ResumePdfPage({
             <div className="mt-2 space-y-2.5">
               {experienceItems.map((item) => (
                 <article key={item.id} className="rounded border border-neutral-200 p-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <p className="text-[11px] font-semibold text-neutral-900">{item.organization}</p>
-                    {item.period ? (
-                      <p className="text-[10px] font-medium text-amber-700">{item.period}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <p className="text-[11px] font-semibold text-neutral-900">{item.organization}</p>
+                      {item.period ? (
+                        <p className="text-[10px] font-medium text-amber-700">{item.period}</p>
+                      ) : null}
+                    </div>
+                    {item.logoUrl ? (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
+                        <Image
+                          src={item.logoUrl}
+                          alt={`${item.title} logo`}
+                          width={32}
+                          height={32}
+                          unoptimized
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
                     ) : null}
                   </div>
                   <p className="mt-1 text-[11px] font-semibold text-neutral-800">{item.title}</p>

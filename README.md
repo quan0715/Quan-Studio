@@ -63,6 +63,11 @@ Notion setup scripts:
 - Set `PARENT_PAGE_ID` in `docker/dev.env` (the parent Notion page where DB will be created)
 - `npm run setup:notion:cms-db` creates the Articles database
 - `npm run setup:notion:resume-db` creates the Resume database
+
+Resume data source schema is fixed to:
+- `Name`, `Section`, `Group`, `Summary`, `Date`, `Tags`, `Visibility`
+- `Section Order`, `Group Order`, `Item Order`, `Logo`
+- No legacy fallback fields are supported.
 - Data source IDs are managed in Studio Settings (`/studio/settings/notion`) and stored in DB.
 
 Health check:

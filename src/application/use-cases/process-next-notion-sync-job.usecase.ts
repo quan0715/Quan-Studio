@@ -38,11 +38,7 @@ export class ProcessNextNotionSyncJobUseCase {
     }
 
     try {
-      const page = (await this.notionClient.retrievePage(job.pageId)) as NotionPage;
-      const blocks = (await this.notionClient.retrieveAllBlockChildren(job.pageId)) as NotionBlocks;
-      const post = await this.mapToPost(page, blocks);
-
-      const saved = await this.postRepository.upsertByNotionPageId(post);
+      const saved = await this.syncPage(job.pageId);
       await this.syncJobRepository.markStatus(job.id, "succeeded", {
         attempt: job.attempt + 1,
         errorMessage: null,
@@ -65,6 +61,32 @@ export class ProcessNextNotionSyncJobUseCase {
       });
       return { ok: false, processed: true, pageId: job.pageId, error: stringifyError(error) };
     }
+  }
+
+  async executePage(pageId: string): Promise<{ ok: true; pageId: string; postId: string } | { ok: false; pageId: string; error: string }> {
+    const normalizedPageId = pageId.trim();
+    if (!normalizedPageId) {
+      return { ok: false, pageId: "", error: "pageId is required" };
+    }
+
+    try {
+      const saved = await this.syncPage(normalizedPageId);
+      return { ok: true, pageId: normalizedPageId, postId: saved.id };
+    } catch (error) {
+      return {
+        ok: false,
+        pageId: normalizedPageId,
+        error: stringifyError(error),
+      };
+    }
+  }
+
+  private async syncPage(pageId: string): Promise<Post> {
+    const page = (await this.notionClient.retrievePage(pageId)) as NotionPage;
+    const blocks = (await this.notionClient.retrieveAllBlockChildren(pageId)) as NotionBlocks;
+    const post = await this.mapToPost(page, blocks);
+
+    return this.postRepository.upsertByNotionPageId(post);
   }
 
   private async mapToPost(page: NotionPage, blocks: NotionBlocks): Promise<Post> {

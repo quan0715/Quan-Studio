@@ -2,7 +2,7 @@
 
 import Image, { type ImageProps } from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/presentation/lib/utils";
 
 const RETRY_COOLDOWN_MS = 90_000;
@@ -32,17 +32,19 @@ function shouldAttemptSync(notionPageId: string): boolean {
 }
 
 async function triggerSyncByPageId(notionPageId: string): Promise<void> {
-  await fetch("/api/studio/sync-jobs", {
+  const response = await fetch("/api/public/notion/refresh-media", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ pageId: notionPageId }),
+    body: JSON.stringify({
+      pageId: notionPageId,
+    }),
   });
 
-  await fetch("/api/studio/sync-jobs/process-next", {
-    method: "POST",
-  });
+  if (!response.ok) {
+    throw new Error(`refresh media failed (${response.status})`);
+  }
 }
 
 export function ResilientNotionImage({
@@ -56,6 +58,12 @@ export function ResilientNotionImage({
   const router = useRouter();
   const [hasError, setHasError] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const srcKey = useMemo(() => String(imageProps.src), [imageProps.src]);
+
+  useEffect(() => {
+    setHasError(false);
+    setIsRecovering(false);
+  }, [srcKey]);
 
   const handleError = async (): Promise<void> => {
     if (hasError || isRecovering) {

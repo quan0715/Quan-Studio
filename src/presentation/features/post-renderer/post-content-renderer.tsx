@@ -202,6 +202,19 @@ function renderChildrenBlocks(
   );
 }
 
+function renderEmbeddedChildrenBlocks(
+  data: Record<string, unknown>,
+  prefix: string,
+  notionPageId?: string | null
+): ReactNode {
+  const children = asNotionBlocks(data.children);
+  if (!children.length) {
+    return null;
+  }
+
+  return <div className="space-y-2">{renderNotionBlocks(children, `${prefix}-child`, notionPageId)}</div>;
+}
+
 function renderMediaCaption(data: Record<string, unknown>, key: string): ReactNode {
   const caption = toPlainText(asRichText(data.caption));
   if (!caption) {
@@ -225,6 +238,55 @@ function renderUrlCard(key: string, label: string, url: string): ReactNode {
       </a>
     </div>
   );
+}
+
+function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string | null): ReactNode {
+  const rawIcon = data.icon;
+  if (!isPlainObject(rawIcon)) {
+    return <span className="text-base leading-none">i</span>;
+  }
+
+  if (rawIcon.type === "emoji" && typeof rawIcon.emoji === "string") {
+    return <span className="text-base leading-none">{rawIcon.emoji}</span>;
+  }
+
+  if (rawIcon.type === "custom_emoji" && isPlainObject(rawIcon.custom_emoji)) {
+    const customEmojiUrl = rawIcon.custom_emoji.url;
+    if (typeof customEmojiUrl === "string" && customEmojiUrl.trim().length > 0) {
+      return (
+        <ResilientNotionImage
+          src={customEmojiUrl}
+          alt="Callout icon"
+          notionPageId={notionPageId}
+          width={20}
+          height={20}
+          unoptimized
+          className="h-5 w-5 rounded-sm object-cover"
+          fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
+          fallbackLabel="i"
+        />
+      );
+    }
+  }
+
+  const mediaIconUrl = extractMediaUrl(rawIcon);
+  if (mediaIconUrl) {
+    return (
+      <ResilientNotionImage
+        src={mediaIconUrl}
+        alt="Callout icon"
+        notionPageId={notionPageId}
+        width={20}
+        height={20}
+        unoptimized
+        className="h-5 w-5 rounded-sm object-cover"
+        fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
+        fallbackLabel="i"
+      />
+    );
+  }
+
+  return <span className="text-base leading-none">i</span>;
 }
 
 function toAnchorSafeId(value: string): string {
@@ -330,16 +392,18 @@ function renderNotionBlock(
         </details>
       );
     case "callout": {
-      const iconValue = isPlainObject(data.icon) ? data.icon.emoji : null;
-      const icon = typeof iconValue === "string" ? iconValue : "i";
+      const calloutChildren = renderEmbeddedChildrenBlocks(data, key, notionPageId);
       return (
-        <div key={key} className="space-y-2">
-          <aside className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-            <span>{icon}</span>
+        <aside
+          key={key}
+          className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
+        >
+          <span className="mt-0.5 shrink-0">{renderCalloutIcon(data, notionPageId)}</span>
+          <div className="min-w-0 space-y-2">
             <div>{richText}</div>
-          </aside>
-          {children}
-        </div>
+            {calloutChildren}
+          </div>
+        </aside>
       );
     }
     case "equation": {
@@ -622,7 +686,7 @@ function renderNotionBlocks(
         const itemData = extractNotionBlockData(itemBlock);
         const itemChildren = renderChildrenBlocks(itemData, itemKey, notionPageId);
         items.push(
-          <li key={itemKey} className="space-y-2 pl-1">
+          <li key={itemKey} className="ml-1 space-y-2">
             <div>{renderNotionRichText(asRichText(itemData.rich_text), itemKey)}</div>
             {itemChildren}
           </li>
@@ -632,7 +696,7 @@ function renderNotionBlocks(
 
       index -= 1;
       nodes.push(
-        <ul key={key} className="list-disc space-y-2 pl-6 text-sm leading-7">
+        <ul key={key} className="list-disc list-outside space-y-2 pl-6 text-sm leading-7">
           {items}
         </ul>
       );
@@ -648,7 +712,7 @@ function renderNotionBlocks(
         const itemData = extractNotionBlockData(itemBlock);
         const itemChildren = renderChildrenBlocks(itemData, itemKey, notionPageId);
         items.push(
-          <li key={itemKey} className="space-y-2 pl-1">
+          <li key={itemKey} className="ml-1 space-y-2">
             <div>{renderNotionRichText(asRichText(itemData.rich_text), itemKey)}</div>
             {itemChildren}
           </li>
@@ -658,7 +722,7 @@ function renderNotionBlocks(
 
       index -= 1;
       nodes.push(
-        <ol key={key} className="list-decimal space-y-2 pl-6 text-sm leading-7">
+        <ol key={key} className="list-decimal list-outside space-y-2 pl-7 text-sm leading-7">
           {items}
         </ol>
       );

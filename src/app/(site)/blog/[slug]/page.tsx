@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Button } from "@/presentation/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/components/ui/card";
@@ -14,6 +15,12 @@ type TocItem = {
   id: string;
   title: string;
   level: 1 | 2 | 3;
+};
+
+const AUTHOR_PROFILE = {
+  avatarSrc: "/avatar-portrait.jpg",
+  name: "Quan",
+  summary: "Product-focused full-stack engineer. Building practical systems across design, content, and engineering.",
 };
 
 export async function generateMetadata({
@@ -129,6 +136,70 @@ function extractTableOfContents(document: Record<string, unknown>): TocItem[] {
   return items;
 }
 
+function countReadingUnits(text: string): number {
+  const latinWords = text.match(/[A-Za-z0-9]+/g)?.length ?? 0;
+  const cjkChars = text.match(/[\u3400-\u9FFF]/g)?.length ?? 0;
+  return latinWords + Math.ceil(cjkChars / 2);
+}
+
+function collectTextAndBlockCount(blocks: Record<string, unknown>[]): { text: string; blockCount: number } {
+  let blockCount = 0;
+  const texts: string[] = [];
+
+  for (const block of blocks) {
+    blockCount += 1;
+    const type = typeof block.type === "string" ? block.type : "";
+    if (!type || !isPlainObject(block[type])) {
+      continue;
+    }
+
+    const data = block[type] as Record<string, unknown>;
+    const richText = richTextToPlain(data.rich_text);
+    if (richText) {
+      texts.push(richText);
+    }
+
+    if (Array.isArray(data.caption)) {
+      const caption = richTextToPlain(data.caption);
+      if (caption) {
+        texts.push(caption);
+      }
+    }
+
+    if (typeof data.title === "string" && data.title.trim()) {
+      texts.push(data.title.trim());
+    }
+
+    if (Array.isArray(data.children)) {
+      const nested = collectTextAndBlockCount(data.children.filter(isPlainObject));
+      blockCount += nested.blockCount;
+      if (nested.text) {
+        texts.push(nested.text);
+      }
+    }
+  }
+
+  return {
+    text: texts.join(" "),
+    blockCount,
+  };
+}
+
+function extractContentStats(document: Record<string, unknown>, headingCount: number): {
+  blockCount: number;
+  readingMinutes: number;
+} {
+  const rootBlocks = toBlocks(document);
+  const { text, blockCount } = collectTextAndBlockCount(rootBlocks);
+  const readingUnits = countReadingUnits(text);
+  const readingMinutes = Math.max(1, Math.ceil(readingUnits / 220));
+
+  return {
+    blockCount: Math.max(blockCount, headingCount),
+    readingMinutes,
+  };
+}
+
 export default async function BlogDetailPage({
   params,
 }: {
@@ -142,6 +213,7 @@ export default async function BlogDetailPage({
   }
   const post = response.data;
   const tocItems = extractTableOfContents(post.contentJson);
+  const contentStats = extractContentStats(post.contentJson, tocItems.length);
 
   return (
     <section className="space-y-4 md:space-y-6">
@@ -159,13 +231,7 @@ export default async function BlogDetailPage({
             <div className="absolute inset-x-0 bottom-0 p-4 text-white sm:p-5 md:p-6">
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/20">
-                  Blog
-                </Badge>
-                <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/20">
                   {formatIsoToUtcDate(post.updatedAt)}
-                </Badge>
-                <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/20">
-                  {post.status}
                 </Badge>
                 {post.tags.map((tag) => (
                   <Badge
@@ -199,41 +265,54 @@ export default async function BlogDetailPage({
         <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <Card>
             <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Author</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="relative h-10 w-10 overflow-hidden rounded-full border">
+                  <Image
+                    src={AUTHOR_PROFILE.avatarSrc}
+                    alt={`${AUTHOR_PROFILE.name} avatar`}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                </div>
+                <p className="text-sm font-medium text-foreground">{AUTHOR_PROFILE.name}</p>
+              </div>
+              <p className="text-xs leading-5 text-muted-foreground">{AUTHOR_PROFILE.summary}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm">Article Info</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-xs text-muted-foreground">
-              {(post.pageIconEmoji || post.pageIconUrl) ? (
-                <p className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">Icon:</span>
-                  <PostIcon post={post} size="sm" />
-                </p>
-              ) : null}
-              <p>
-                <span className="font-medium text-foreground">Updated:</span>{" "}
-                {formatIsoToUtcDate(post.updatedAt)}
-              </p>
-              {post.publishedAt ? (
-                <p>
-                  <span className="font-medium text-foreground">Published:</span>{" "}
-                  {formatIsoToUtcDate(post.publishedAt)}
-                </p>
-              ) : null}
-              {post.syncedAt ? (
-                <p>
-                  <span className="font-medium text-foreground">Synced:</span>{" "}
-                  {formatIsoToUtcDate(post.syncedAt)}
-                </p>
-              ) : null}
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-start gap-2">
+                  {(post.pageIconEmoji || post.pageIconUrl) ? <PostIcon post={post} size="sm" /> : null}
+                  <p className="text-sm font-semibold leading-5 text-foreground">{post.title}</p>
+                </div>
+                {post.excerpt ? (
+                  <p className="text-xs leading-5 text-muted-foreground">{post.excerpt}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No excerpt provided.</p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="secondary">{`${contentStats.readingMinutes} min read`}</Badge>
+                <Badge variant="outline">{`Updated ${formatIsoToUtcDate(post.updatedAt)}`}</Badge>
+              </div>
+
               {post.tags.length > 0 ? (
-                <div className="space-y-1">
-                  <p className="font-medium text-foreground">Tags:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {post.tags.map((tag) => (
-                      <Badge key={`${post.id}-info-${tag}`} variant="secondary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-1">
+                  {post.tags.map((tag) => (
+                    <Badge key={`${post.id}-info-${tag}`} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               ) : null}
             </CardContent>

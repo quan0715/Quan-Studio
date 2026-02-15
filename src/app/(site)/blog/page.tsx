@@ -15,9 +15,6 @@ export default async function BlogListPage() {
     <section className="space-y-6">
       <Card>
         <CardContent className="space-y-3 p-6 md:p-8">
-          <Badge variant="secondary" className="w-fit">
-            Blog
-          </Badge>
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Engineering Notes</h1>
           <p className="max-w-3xl text-sm leading-7 text-muted-foreground md:text-base">
             記錄系統設計、內容同步、前端架構與產品開發過程中的技術決策。

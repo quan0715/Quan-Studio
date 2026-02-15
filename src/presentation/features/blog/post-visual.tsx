@@ -50,11 +50,7 @@ export function PostIcon({ post, size = "md", className }: PostIconProps) {
     );
   }
 
-  return (
-    <span className={shapeClass}>
-      <span className="font-semibold">{post.title.slice(0, 1).toUpperCase()}</span>
-    </span>
-  );
+  return null;
 }
 
 type PostCoverProps = {
@@ -70,7 +66,7 @@ export function PostCover({
   className,
   imageClassName,
   showFallbackTitle = true,
-  showFallbackIcon = true,
+  showFallbackIcon = false,
 }: PostCoverProps) {
   if (post.coverUrl) {
     return (

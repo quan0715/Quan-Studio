@@ -11,10 +11,10 @@ import { ListNotionResumeDataSourceUseCase } from "@/application/use-cases/list-
 import { ListNotionSyncJobsUseCase } from "@/application/use-cases/list-notion-sync-jobs.usecase";
 import { ListStudioPostsUseCase } from "@/application/use-cases/list-studio-posts.usecase";
 import {
-  GetStudioNotionSettingsUseCase,
-  TestStudioNotionSettingsUseCase,
-  UpdateStudioNotionSettingsUseCase,
-} from "@/application/use-cases/manage-studio-notion-settings.usecase";
+  GetNotionModelSettingsUseCase,
+  SelectNotionModelSourceUseCase,
+} from "@/application/use-cases/manage-notion-model-settings.usecase";
+import { ListNotionSourcePageDataSourcesService } from "@/application/services/list-notion-source-page-data-sources.service";
 import { ProcessNextNotionSyncJobUseCase } from "@/application/use-cases/process-next-notion-sync-job.usecase";
 import { RetryNotionSyncJobUseCase } from "@/application/use-cases/retry-notion-sync-job.usecase";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
@@ -33,9 +33,8 @@ type Container = {
   listNotionDataSourcePagesUseCase: ListNotionDataSourcePagesUseCase;
   listNotionResumeDataSourceUseCase: ListNotionResumeDataSourceUseCase;
   retryNotionSyncJobUseCase: RetryNotionSyncJobUseCase;
-  getStudioNotionSettingsUseCase: GetStudioNotionSettingsUseCase;
-  updateStudioNotionSettingsUseCase: UpdateStudioNotionSettingsUseCase;
-  testStudioNotionSettingsUseCase: TestStudioNotionSettingsUseCase;
+  getNotionModelSettingsUseCase: GetNotionModelSettingsUseCase;
+  selectNotionModelSourceUseCase: SelectNotionModelSourceUseCase;
   getNotionSchemaMappingUseCase: GetNotionSchemaMappingUseCase;
   updateNotionSchemaMappingUseCase: UpdateNotionSchemaMappingUseCase;
 };
@@ -49,15 +48,16 @@ function createContainer(): Container {
   const notionSyncJobRepository = new PrismaNotionSyncJobRepository();
   const integrationConfigRepository = new PrismaIntegrationConfigRepository();
   const notionClient = new NotionClient();
-  const getStudioNotionSettingsUseCase = new GetStudioNotionSettingsUseCase(
+  const notionSourcePageDataSourcesService = new ListNotionSourcePageDataSourcesService(
+    notionClient
+  );
+  const getNotionModelSettingsUseCase = new GetNotionModelSettingsUseCase(
+    notionSourcePageDataSourcesService,
     integrationConfigRepository
   );
-  const updateStudioNotionSettingsUseCase = new UpdateStudioNotionSettingsUseCase(
+  const selectNotionModelSourceUseCase = new SelectNotionModelSourceUseCase(
+    notionSourcePageDataSourcesService,
     integrationConfigRepository
-  );
-  const testStudioNotionSettingsUseCase = new TestStudioNotionSettingsUseCase(
-    notionClient,
-    getStudioNotionSettingsUseCase
   );
 
   return {
@@ -72,7 +72,8 @@ function createContainer(): Container {
     processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
       notionSyncJobRepository,
       postRepository,
-      notionClient
+      notionClient,
+      integrationConfigRepository
     ),
     listNotionSyncJobsUseCase: new ListNotionSyncJobsUseCase(notionSyncJobRepository),
     listNotionDataSourcePagesUseCase: new ListNotionDataSourcePagesUseCase(
@@ -85,9 +86,8 @@ function createContainer(): Container {
       integrationConfigRepository
     ),
     retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository, notionClient),
-    getStudioNotionSettingsUseCase,
-    updateStudioNotionSettingsUseCase,
-    testStudioNotionSettingsUseCase,
+    getNotionModelSettingsUseCase,
+    selectNotionModelSourceUseCase,
     getNotionSchemaMappingUseCase: new GetNotionSchemaMappingUseCase(
       notionClient,
       integrationConfigRepository
@@ -123,9 +123,8 @@ function isContainerInitialized(container: Container | undefined): container is 
       container.listNotionDataSourcePagesUseCase &&
       container.listNotionResumeDataSourceUseCase &&
       container.retryNotionSyncJobUseCase &&
-      container.getStudioNotionSettingsUseCase &&
-      container.updateStudioNotionSettingsUseCase &&
-      container.testStudioNotionSettingsUseCase &&
+      container.getNotionModelSettingsUseCase &&
+      container.selectNotionModelSourceUseCase &&
       container.getNotionSchemaMappingUseCase &&
       container.updateNotionSchemaMappingUseCase
   );

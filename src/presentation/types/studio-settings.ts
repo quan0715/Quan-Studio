@@ -1,34 +1,36 @@
-export type NotionDataSourceSettingsDto = {
-  blogDataSourceId: string;
-  resumeDataSourceId: string;
-  source: {
-    blog: "database" | "missing";
-    resume: "database" | "missing";
-  };
+export type NotionModelTemplate = string;
+
+export type NotionModelTemplateInfoDto = {
+  id: NotionModelTemplate;
+  label: string;
+  defaultDisplayName: string;
+  schemaSource: string | null;
 };
 
-export type NotionDataSourceTestResultDto = {
-  blog: {
-    ok: boolean;
-    message: string;
+export type RegisteredModelDto = {
+  template: NotionModelTemplate;
+  displayName: string;
+  configuredDataSourceId: string | null;
+};
+
+export type SourcePageDataSourceCandidateDto = {
+  databaseId: string;
+  databaseTitle: string;
+  dataSourceId: string;
+  url: string | null;
+};
+
+export type NotionModelSettingsDto = {
+  sourcePage: {
+    id: string;
+    configured: boolean;
   };
-  resume: {
-    ok: boolean;
-    message: string;
-  };
-  envConfig: {
-    ok: boolean;
-    message: string;
-    notionEnvDatabaseId: string;
-    notionEnvDataSourceId: string | null;
-    readable: boolean;
-    availableKeys: string[];
-    checks: Array<{
-      credential: "username" | "password";
-      notionKey: string;
-      keyExists: boolean;
-      valuePresent: boolean;
-    }>;
+  models: RegisteredModelDto[];
+  availableTemplates: NotionModelTemplateInfoDto[];
+  candidates: SourcePageDataSourceCandidateDto[];
+  meta: {
+    generatedAt: string;
+    candidateCount: number;
   };
 };
 
@@ -47,7 +49,7 @@ export type NotionSchemaFieldCheckDto = {
 };
 
 export type NotionSchemaMappingReportDto = {
-  source: "blog" | "resume";
+  source: string;
   dataSourceId: string;
   configured: boolean;
   ok: boolean;

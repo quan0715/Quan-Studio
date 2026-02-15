@@ -15,6 +15,8 @@ export type PostListItemDto = {
   syncError: string | null;
   pageIconEmoji: string | null;
   pageIconUrl: string | null;
+  notionPageCreatedTime: string | null;
+  notionPageLastEditedTime: string | null;
 };
 
 export type PostDetailDto = PostListItemDto & {

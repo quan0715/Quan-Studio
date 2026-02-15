@@ -1,4 +1,5 @@
 import { AppError } from "@/application/errors";
+import { extractPropertyText } from "@/domain/notion/notion-property-readers";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
 type NotionDataSourceQueryResponse = {
@@ -113,43 +114,4 @@ function extractNotionEnvMap(rows: Array<Record<string, unknown>>): Map<string, 
 
 function normalizeKey(value: string): string {
   return value.trim().toUpperCase();
-}
-
-function extractPropertyText(properties: Record<string, unknown>, key: string): string | null {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const obj = value as Record<string, unknown>;
-  if (Array.isArray(obj.title)) {
-    const text = richTextToPlain(obj.title);
-    return text.length > 0 ? text : null;
-  }
-
-  if (Array.isArray(obj.rich_text)) {
-    const text = richTextToPlain(obj.rich_text);
-    return text.length > 0 ? text : null;
-  }
-
-  if (typeof obj.plain_text === "string") {
-    const text = obj.plain_text.trim();
-    return text.length > 0 ? text : null;
-  }
-
-  return null;
-}
-
-function richTextToPlain(items: unknown[]): string {
-  return items
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return "";
-      }
-
-      const plainText = (item as Record<string, unknown>).plain_text;
-      return typeof plainText === "string" ? plainText : "";
-    })
-    .join("")
-    .trim();
 }

@@ -1,7 +1,18 @@
+import {
+  NotionModelMapperService,
+  parseStoredNotionSchemaFieldMapping,
+} from "@/application/services/notion-model-mapper.service";
+import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
+import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
+import { normalizeNotionTimestamp } from "@/domain/notion/notion-property-readers";
+import {
+  getNotionModelById,
+  type NotionSchemaModelDescriptor,
+} from "@/domain/notion-models/registry";
+import type { NotionSyncJobRepository } from "@/domain/notion-sync/notion-sync-job-repository";
 import { assertPostInvariants, type Post } from "@/domain/post/post";
 import type { PostRepository } from "@/domain/post/post-repository";
 import { normalizeSlug, resolveUniqueSlug } from "@/domain/post/slug";
-import type { NotionSyncJobRepository } from "@/domain/notion-sync/notion-sync-job-repository";
 import { NotionClient, type NotionSyncStatusLabel } from "@/infrastructure/notion/notion-client";
 
 type ProcessNextNotionSyncJobOutput =
@@ -25,11 +36,18 @@ type NotionBlocks = {
   next_cursor: string | null;
 };
 
+type PostIconValue = {
+  emoji: string | null;
+  url: string | null;
+};
+
 export class ProcessNextNotionSyncJobUseCase {
   constructor(
     private readonly syncJobRepository: NotionSyncJobRepository,
     private readonly postRepository: PostRepository,
-    private readonly notionClient: NotionClient
+    private readonly notionClient: NotionClient,
+    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly notionModelMapperService: NotionModelMapperService = new NotionModelMapperService()
   ) {}
 
   async execute(lockId: string): Promise<ProcessNextNotionSyncJobOutput> {
@@ -68,7 +86,9 @@ export class ProcessNextNotionSyncJobUseCase {
     }
   }
 
-  async executePage(pageId: string): Promise<{ ok: true; pageId: string; postId: string } | { ok: false; pageId: string; error: string }> {
+  async executePage(
+    pageId: string
+  ): Promise<{ ok: true; pageId: string; postId: string } | { ok: false; pageId: string; error: string }> {
     const normalizedPageId = pageId.trim();
     if (!normalizedPageId) {
       return { ok: false, pageId: "", error: "pageId is required" };
@@ -99,22 +119,38 @@ export class ProcessNextNotionSyncJobUseCase {
   }
 
   private async mapToPost(page: NotionPage, blocks: NotionBlocks): Promise<Post> {
-    const title =
-      extractPropertyText(page.properties, "Title") ||
-      extractPropertyText(page.properties, "Name") ||
-      "Untitled";
-    const preferredSlug = normalizeSlug(extractPropertyText(page.properties, "Slug") || title || page.id);
-    const status = extractPropertyStatus(page.properties, "Status");
-    const excerpt = optionalText(extractPropertyText(page.properties, "Excerpt"));
-    const tags = extractPropertyMultiSelectNames(page.properties, ["Tags", "Tag"]);
+    const blogSchemaModel = getBlogSchemaModel();
+    const storedMappingConfig = await this.integrationConfigRepository.findByKey(
+      integrationConfigKeys.notionSchemaFieldMapping
+    );
+    const storedMapping = parseStoredNotionSchemaFieldMapping(storedMappingConfig?.value ?? "");
+    const explicitMappings = storedMapping.sources[blogSchemaModel.schemaSource] ?? {};
+    const mappedFields = this.notionModelMapperService.mapPageFields({
+      expectations: blogSchemaModel.schemaMapping.expectations,
+      builtinChecks: blogSchemaModel.schemaMapping.builtinChecks,
+      explicitMappings,
+      page,
+    });
+
+    const title = optionalText(asOptionalString(mappedFields["post.title"])) ?? "Untitled";
+    const preferredSlug = normalizeSlug(
+      asOptionalString(mappedFields["post.slug"]) || title || page.id
+    );
+    const status = toPostStatus(mappedFields["post.status"]);
+    const excerpt = optionalText(asOptionalString(mappedFields["post.excerpt"]));
+    const tags = asStringArray(mappedFields["post.tags"]);
     const coverUrl =
-      extractPageCoverUrl(page.cover) ??
+      asOptionalString(mappedFields["post.cover"]) ??
       extractPropertyCoverUrl(page.properties) ??
       extractFirstImageUrlFromBlocks(blocks.results);
-    const pageIcon = extractPageIcon(page.icon);
+    const pageIcon = asPostIconValue(mappedFields["post.icon"]) ?? extractPageIcon(page.icon);
     const richTextProperties = extractRichTextProperties(page.properties);
-    const notionLastEditedAt = parseDate(page.last_edited_time);
-    const notionCreatedAt = parseDate(page.created_time);
+    const createdTimeRaw = asOptionalString(mappedFields["post.createdTime"]) ?? page.created_time;
+    const lastEditedTimeRaw =
+      asOptionalString(mappedFields["post.lastEditedTime"]) ?? page.last_edited_time;
+    const notionLastEditedAt = parseDate(lastEditedTimeRaw);
+    const notionCreatedAt = parseDate(createdTimeRaw);
+    const pageTimestamps = buildPageTimestamps(createdTimeRaw, lastEditedTimeRaw);
 
     const existing = await this.postRepository.findByNotionPageId(page.id);
     const resolvedSlug = await resolveUniqueSlug(preferredSlug || normalizeSlug(page.id), async (candidate) => {
@@ -133,6 +169,7 @@ export class ProcessNextNotionSyncJobUseCase {
         ...currentNotionMeta,
         richTextProperties,
         pageIcon,
+        pageTimestamps,
       },
     };
 
@@ -175,6 +212,46 @@ export class ProcessNextNotionSyncJobUseCase {
   }
 }
 
+function getBlogSchemaModel(): NotionSchemaModelDescriptor {
+  const descriptor = getNotionModelById("blog");
+  if (!descriptor || descriptor.schemaSource !== "blog" || !descriptor.schemaMapping) {
+    throw new Error("blog notion schema model is not properly configured");
+  }
+  return descriptor as NotionSchemaModelDescriptor;
+}
+
+function asOptionalString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function toPostStatus(value: unknown): "draft" | "published" {
+  if (typeof value !== "string") {
+    return "draft";
+  }
+  return value.trim().toLowerCase() === "published" ? "published" : "draft";
+}
+
+function asPostIconValue(value: unknown): PostIconValue | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  return {
+    emoji: typeof value.emoji === "string" ? value.emoji : null,
+    url: typeof value.url === "string" ? value.url : null,
+  };
+}
+
 function parseDate(value: string | null): Date | null {
   if (!value) {
     return null;
@@ -194,107 +271,21 @@ function optionalText(value: string | null): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function buildPageTimestamps(
+  createdTimeRaw: string | null,
+  lastEditedTimeRaw: string | null
+): { createdTime: string | null; lastEditedTime: string | null } {
+  return {
+    createdTime: normalizeNotionTimestamp(createdTimeRaw),
+    lastEditedTime: normalizeNotionTimestamp(lastEditedTimeRaw),
+  };
+}
+
 function stringifyError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
   return "unknown error";
-}
-
-function extractPropertyText(properties: Record<string, unknown>, key: string): string | null {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const obj = value as Record<string, unknown>;
-
-  if (Array.isArray(obj.title)) {
-    return richTextToPlain(obj.title);
-  }
-  if (Array.isArray(obj.rich_text)) {
-    return richTextToPlain(obj.rich_text);
-  }
-  if (typeof obj.plain_text === "string") {
-    return obj.plain_text;
-  }
-
-  return null;
-}
-
-function extractPropertyStatus(properties: Record<string, unknown>, key: string): "draft" | "published" {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return "draft";
-  }
-
-  const record = value as Record<string, unknown>;
-
-  const status = record.status;
-  if (status && typeof status === "object") {
-    const name = ((status as Record<string, unknown>).name as string | undefined)?.toLowerCase() ?? "";
-    return name === "published" ? "published" : "draft";
-  }
-
-  const select = record.select;
-  if (select && typeof select === "object") {
-    const name = ((select as Record<string, unknown>).name as string | undefined)?.toLowerCase() ?? "";
-    return name === "published" ? "published" : "draft";
-  }
-
-  return "draft";
-}
-
-function extractPropertyMultiSelectNames(
-  properties: Record<string, unknown>,
-  keys: string[]
-): string[] {
-  for (const key of keys) {
-    const value = properties[key];
-    if (!value || typeof value !== "object") {
-      continue;
-    }
-
-    const record = value as Record<string, unknown>;
-
-    if (Array.isArray(record.multi_select)) {
-      return record.multi_select
-        .map((item) => {
-          if (!item || typeof item !== "object") {
-            return "";
-          }
-          const name = (item as Record<string, unknown>).name;
-          return typeof name === "string" ? name.trim() : "";
-        })
-        .filter((name) => name.length > 0);
-    }
-
-    if (record.select && typeof record.select === "object") {
-      const selectName = (record.select as Record<string, unknown>).name;
-      if (typeof selectName === "string" && selectName.trim()) {
-        return [selectName.trim()];
-      }
-    }
-  }
-
-  return [];
-}
-
-function extractPageCoverUrl(cover: unknown): string | null {
-  if (!isPlainObject(cover)) {
-    return null;
-  }
-
-  if (cover.type === "external" && isPlainObject(cover.external)) {
-    const url = cover.external.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (cover.type === "file" && isPlainObject(cover.file)) {
-    const url = cover.file.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  return null;
 }
 
 function extractPropertyCoverUrl(properties: Record<string, unknown>): string | null {
@@ -364,7 +355,7 @@ function extractNotionFileLikeUrl(value: unknown): string | null {
   return null;
 }
 
-function extractPageIcon(icon: unknown): { emoji: string | null; url: string | null } | null {
+function extractPageIcon(icon: unknown): PostIconValue | null {
   if (!isPlainObject(icon)) {
     return null;
   }
@@ -419,18 +410,6 @@ function extractRichTextProperties(properties: Record<string, unknown>): Record<
   }
 
   return result;
-}
-
-function richTextToPlain(items: unknown[]): string {
-  return items
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return "";
-      }
-      const plainText = (item as Record<string, unknown>).plain_text;
-      return typeof plainText === "string" ? plainText : "";
-    })
-    .join("");
 }
 
 function toPlainRecord(value: unknown): Record<string, unknown> {

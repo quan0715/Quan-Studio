@@ -4,7 +4,6 @@ import type {
   NotionSyncJobDto,
   ProcessNextNotionSyncJobResponse,
 } from "@/presentation/types/notion-sync";
-import type { PostDetailDto } from "@/presentation/types/post";
 
 function toApiError(code: string, message: string): ApiResponse<never> {
   return {
@@ -91,32 +90,6 @@ export async function getNotionSyncJobs(limit = 50): Promise<ApiResponse<NotionS
   const normalizedLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 50;
   const response = await apiRequest<NotionSyncJobDto[]>(
     `/api/studio/sync-jobs?limit=${encodeURIComponent(String(normalizedLimit))}`,
-    {
-      method: "GET",
-    }
-  );
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: {
-        code: response.error.code,
-        message: toApiMessage(response.error),
-      },
-    };
-  }
-
-  return response;
-}
-
-export async function getStudioPostByNotionPageId(pageId: string): Promise<ApiResponse<PostDetailDto>> {
-  const normalized = pageId.trim();
-  if (!normalized) {
-    return toApiError("VALIDATION_ERROR", "Page ID is required.");
-  }
-
-  const response = await apiRequest<PostDetailDto>(
-    `/api/studio/posts/by-page-id?pageId=${encodeURIComponent(normalized)}`,
     {
       method: "GET",
     }

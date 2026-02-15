@@ -84,13 +84,16 @@
    - 驗證帳密，發放 Studio session cookie。
 2. `POST /api/studio/auth/logout`
    - 清除 Studio session cookie。
-3. `GET /api/studio/settings/notion`
-   - 取得 blog/resume data source 設定（DB 優先，env fallback）。
-4. `PATCH /api/studio/settings/notion`
-   - 更新 blog/resume data source 設定至 DB。
-5. `POST /api/studio/settings/notion/test`
-   - 測試 Notion data source 連線。
-   - 讀取 `NOTION_ENV_DATABASE_ID` 指向的 `NOTION.ENV` database，並以 `KEY/VALUE` 驗證 `ADMIN_USER_NAME`、`ADMIN_USER_PWD` 是否存在且有值（不回傳敏感值）。
+3. `GET /api/studio/settings/notion/models`
+   - 取得 Source Page 下可綁定的 data source 候選與目前 model 綁定狀態。
+4. `POST /api/studio/settings/notion/models/refresh`
+   - 重新掃描 Source Page 的 child databases / data sources。
+5. `PATCH /api/studio/settings/notion/models/select-source`
+   - 指定 model 對應的 data source。
+6. `GET /api/studio/settings/notion/schema-mapping`
+   - 取得 App field 與 Notion field 的 schema mapping 檢查報告。
+7. `PATCH /api/studio/settings/notion/schema-mapping`
+   - 更新指定 source 的 schema field mapping。
 
 ### 6.4 Public
 1. `GET /api/public/posts`
@@ -132,9 +135,10 @@
 1. `posts.content_json` 僅存 Notion blocks。
 2. `posts.cover_url` 來源為 Notion `page.cover`（不再讀取自訂 `Cover` property）。
 3. Notion `page.icon` 需存於 `posts.content_json._notion.pageIcon` 供前端渲染。
-4. 以 `notion_page_id` 作 upsert key。
-5. 同步失敗需寫入 `sync_error` 與 job error。
-6. `integration_configs` 儲存可變動的 integration 設定（例如 data source ids）。
+4. Notion `created_time` / `last_edited_time` 需存於 `posts.content_json._notion.pageTimestamps` 供讀取。
+5. 以 `notion_page_id` 作 upsert key。
+6. 同步失敗需寫入 `sync_error` 與 job error。
+7. `integration_configs` 儲存可變動的 integration 設定（例如 data source ids）。
 
 ## 9. 驗收標準（Backend DoD）
 1. webhook 請求可成功入列任務。

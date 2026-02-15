@@ -198,6 +198,7 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
               <TableHead>Slug</TableHead>
               <TableHead>Notion Status</TableHead>
               <TableHead>Sync Status</TableHead>
+              <TableHead>Notion Created</TableHead>
               <TableHead>Notion Updated</TableHead>
               <TableHead>Last Synced</TableHead>
               <TableHead>Sync Check</TableHead>
@@ -236,6 +237,7 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
                     </p>
                   )}
                 </TableCell>
+                <TableCell>{formatDateLabel(page.createdTime)}</TableCell>
                 <TableCell>{formatDateLabel(page.lastEditedTime)}</TableCell>
                 <TableCell>{formatDateLabel(page.lastSyncedAt)}</TableCell>
                 <TableCell>
@@ -281,7 +283,7 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
             ))}
             {pages.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground text-center text-sm">
+                <TableCell colSpan={9} className="text-muted-foreground text-center text-sm">
                   No pages found in configured blog data source.
                 </TableCell>
               </TableRow>

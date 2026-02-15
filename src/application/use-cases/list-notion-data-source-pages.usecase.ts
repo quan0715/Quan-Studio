@@ -1,6 +1,12 @@
 import { AppError } from "@/application/errors";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
+import {
+  extractPropertyMultiSelectNames,
+  extractPropertyStatusName,
+  extractPropertyText,
+  normalizeNotionTimestamp,
+} from "@/domain/notion/notion-property-readers";
 import type { Post } from "@/domain/post/post";
 import type { PostRepository } from "@/domain/post/post-repository";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
@@ -12,6 +18,7 @@ export type NotionDataSourcePage = {
   slug: string | null;
   status: string | null;
   tags: string[];
+  createdTime: string | null;
   lastEditedTime: string;
   lastSyncedAt: string | null;
   lastSyncedNotionEditedTime: string | null;
@@ -63,7 +70,12 @@ function toNotionDataSourcePage(
 
   const pageId = typeof page.id === "string" ? page.id : "";
   const url = typeof page.url === "string" ? page.url : "";
-  const lastEditedTime = typeof page.last_edited_time === "string" ? page.last_edited_time : "";
+  const createdTime = normalizeNotionTimestamp(
+    typeof page.created_time === "string" ? page.created_time : null
+  );
+  const lastEditedTime = normalizeNotionTimestamp(
+    typeof page.last_edited_time === "string" ? page.last_edited_time : null
+  );
 
   if (!pageId || !url || !lastEditedTime) {
     return null;
@@ -79,7 +91,7 @@ function toNotionDataSourcePage(
     extractPropertyText(properties, "Title") ||
     "Untitled";
   const slug = extractPropertyText(properties, "Slug");
-  const status = extractPropertyStatus(properties, "Status");
+  const status = extractPropertyStatusName(properties, "Status");
   const tags = extractPropertyMultiSelectNames(properties, ["Tags", "Tag"]);
   const syncedPost = postByPageId.get(pageId) ?? null;
   const requiresSync = resolveRequiresSync(lastEditedTime, syncedPost?.notionLastEditedAt ?? null);
@@ -91,6 +103,7 @@ function toNotionDataSourcePage(
     slug,
     status,
     tags,
+    createdTime,
     lastEditedTime,
     lastSyncedAt: syncedPost?.syncedAt?.toISOString() ?? null,
     lastSyncedNotionEditedTime: syncedPost?.notionLastEditedAt?.toISOString() ?? null,
@@ -113,97 +126,4 @@ function resolveRequiresSync(lastEditedTime: string, notionLastEditedAt: Date | 
   }
 
   return notionTimestamp !== notionLastEditedAt.getTime();
-}
-
-function extractPropertyText(properties: Record<string, unknown>, key: string): string | null {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const obj = value as Record<string, unknown>;
-
-  if (Array.isArray(obj.title)) {
-    return richTextToPlain(obj.title);
-  }
-
-  if (Array.isArray(obj.rich_text)) {
-    return richTextToPlain(obj.rich_text);
-  }
-
-  if (typeof obj.plain_text === "string") {
-    return obj.plain_text;
-  }
-
-  return null;
-}
-
-function extractPropertyStatus(properties: Record<string, unknown>, key: string): string | null {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const obj = value as Record<string, unknown>;
-  const statusObj = obj.status;
-  if (statusObj && typeof statusObj === "object") {
-    const name = (statusObj as Record<string, unknown>).name;
-    return typeof name === "string" ? name : null;
-  }
-
-  const selectObj = obj.select;
-  if (selectObj && typeof selectObj === "object") {
-    const name = (selectObj as Record<string, unknown>).name;
-    return typeof name === "string" ? name : null;
-  }
-
-  return null;
-}
-
-function extractPropertyMultiSelectNames(
-  properties: Record<string, unknown>,
-  keys: string[]
-): string[] {
-  for (const key of keys) {
-    const value = properties[key];
-    if (!value || typeof value !== "object") {
-      continue;
-    }
-
-    const obj = value as Record<string, unknown>;
-    if (Array.isArray(obj.multi_select)) {
-      return obj.multi_select
-        .map((item) => {
-          if (!item || typeof item !== "object") {
-            return "";
-          }
-          const name = (item as Record<string, unknown>).name;
-          return typeof name === "string" ? name.trim() : "";
-        })
-        .filter((name) => name.length > 0);
-    }
-
-    if (obj.select && typeof obj.select === "object") {
-      const name = (obj.select as Record<string, unknown>).name;
-      if (typeof name === "string" && name.trim()) {
-        return [name.trim()];
-      }
-    }
-  }
-
-  return [];
-}
-
-function richTextToPlain(items: unknown[]): string {
-  return items
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return "";
-      }
-
-      const plainText = (item as Record<string, unknown>).plain_text;
-      return typeof plainText === "string" ? plainText : "";
-    })
-    .join("")
-    .trim();
 }

@@ -1,6 +1,14 @@
 import { AppError } from "@/application/errors";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
+import {
+  extractNotionFileLikeUrl,
+  extractPropertyDateRange,
+  extractPropertyMultiSelectNames,
+  extractPropertyNumber,
+  extractPropertySelectName,
+  extractPropertyText,
+} from "@/domain/notion/notion-property-readers";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
 type NotionQueryResponse = {
@@ -121,24 +129,24 @@ function toResumeRow(page: Record<string, unknown>): ResumeRow | null {
   }
 
   const properties = isPlainObject(page.properties) ? page.properties : {};
-  const visibility = extractSelectName(properties, "Visibility");
+  const visibility = extractPropertySelectName(properties, "Visibility");
   if (visibility && visibility.toLowerCase() === "private") {
     return null;
   }
 
-  const section = extractSelectName(properties, "Section") ?? "General";
-  const group = extractRichText(properties, "Group") ?? "General";
-  const name = extractTitle(properties, "Name") ?? "Untitled";
-  const logoUrl = extractFileObjectUrl(page.icon);
-  const summary = extractRichText(properties, "Summary");
+  const section = extractPropertySelectName(properties, "Section") ?? "General";
+  const group = extractPropertyText(properties, "Group") ?? "General";
+  const name = extractPropertyText(properties, "Name") ?? "Untitled";
+  const logoUrl = extractNotionFileLikeUrl(page.icon);
+  const summary = extractPropertyText(properties, "Summary");
   const periodData = extractPeriodData(properties);
   const period = periodData.label;
   const periodSortIso = periodData.sortIso;
   const bullets = extractSummaryBullets(summary);
-  const tags = extractMultiSelectNames(properties, "Tags");
-  const sectionOrder = extractNumber(properties, "Section Order") ?? defaultSectionOrder(section);
-  const groupOrder = extractNumber(properties, "Group Order") ?? Number.MAX_SAFE_INTEGER;
-  const itemOrder = extractNumber(properties, "Item Order");
+  const tags = extractPropertyMultiSelectNames(properties, ["Tags"]);
+  const sectionOrder = extractPropertyNumber(properties, "Section Order") ?? defaultSectionOrder(section);
+  const groupOrder = extractPropertyNumber(properties, "Group Order") ?? Number.MAX_SAFE_INTEGER;
+  const itemOrder = extractPropertyNumber(properties, "Item Order");
 
   return {
     pageId,
@@ -277,7 +285,7 @@ function compareResumeRows(a: ResumeRow, b: ResumeRow): number {
 }
 
 function extractPeriodData(properties: Record<string, unknown>): { label: string | null; sortIso: string | null } {
-  const range = extractDateRange(properties, "Date");
+  const range = extractPropertyDateRange(properties, "Date");
   if (range.start || range.end) {
     return {
       label: formatPeriodLabel(range.start, range.end),
@@ -364,124 +372,6 @@ function normalizeId(value: string): string {
     .replace(/^-+|-+$/g, "");
 
   return normalized || "untitled";
-}
-
-function extractTitle(properties: Record<string, unknown>, key: string): string | null {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || !Array.isArray(prop.title)) {
-    return null;
-  }
-
-  const plain = prop.title
-    .map((item) => {
-      if (!isPlainObject(item)) {
-        return "";
-      }
-      return typeof item.plain_text === "string" ? item.plain_text : "";
-    })
-    .join("")
-    .trim();
-
-  return plain || null;
-}
-
-function extractRichText(properties: Record<string, unknown>, key: string): string | null {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || !Array.isArray(prop.rich_text)) {
-    return null;
-  }
-
-  const plain = prop.rich_text
-    .map((item) => {
-      if (!isPlainObject(item)) {
-        return "";
-      }
-      return typeof item.plain_text === "string" ? item.plain_text : "";
-    })
-    .join("")
-    .trim();
-
-  return plain || null;
-}
-
-function extractFileObjectUrl(value: unknown): string | null {
-  if (!isPlainObject(value)) {
-    return null;
-  }
-
-  if (value.type === "external" && isPlainObject(value.external)) {
-    const url = value.external.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (value.type === "file" && isPlainObject(value.file)) {
-    const url = value.file.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (value.type === "file_upload" && isPlainObject(value.file_upload)) {
-    const url = value.file_upload.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (value.type === "custom_emoji" && isPlainObject(value.custom_emoji)) {
-    const url = value.custom_emoji.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  const rawUrl = value.url;
-  if (typeof rawUrl === "string") {
-    return rawUrl;
-  }
-
-  return null;
-}
-
-function extractSelectName(properties: Record<string, unknown>, key: string): string | null {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || !isPlainObject(prop.select)) {
-    return null;
-  }
-
-  return typeof prop.select.name === "string" ? prop.select.name : null;
-}
-
-function extractMultiSelectNames(properties: Record<string, unknown>, key: string): string[] {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || !Array.isArray(prop.multi_select)) {
-    return [];
-  }
-
-  return prop.multi_select
-    .map((item) => {
-      if (!isPlainObject(item)) {
-        return "";
-      }
-      return typeof item.name === "string" ? item.name.trim() : "";
-    })
-    .filter((name) => name.length > 0);
-}
-
-function extractNumber(properties: Record<string, unknown>, key: string): number | null {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || typeof prop.number !== "number") {
-    return null;
-  }
-  return prop.number;
-}
-
-function extractDateRange(
-  properties: Record<string, unknown>,
-  key: string
-): { start: string | null; end: string | null } {
-  const prop = properties[key];
-  if (!isPlainObject(prop) || !isPlainObject(prop.date)) {
-    return { start: null, end: null };
-  }
-
-  const start = typeof prop.date.start === "string" ? prop.date.start : null;
-  const end = typeof prop.date.end === "string" ? prop.date.end : null;
-  return { start, end };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

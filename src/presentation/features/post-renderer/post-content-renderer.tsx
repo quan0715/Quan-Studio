@@ -243,7 +243,7 @@ function renderUrlCard(key: string, label: string, url: string): ReactNode {
 function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string | null): ReactNode {
   const rawIcon = data.icon;
   if (!isPlainObject(rawIcon)) {
-    return <span className="text-base leading-none">i</span>;
+    return null;
   }
 
   if (rawIcon.type === "emoji" && typeof rawIcon.emoji === "string") {
@@ -263,7 +263,7 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
           unoptimized
           className="h-5 w-5 rounded-sm object-cover"
           fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
-          fallbackLabel="i"
+          fallbackLabel=""
         />
       );
     }
@@ -281,12 +281,12 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
         unoptimized
         className="h-5 w-5 rounded-sm object-cover"
         fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
-        fallbackLabel="i"
+        fallbackLabel=""
       />
     );
   }
 
-  return <span className="text-base leading-none">i</span>;
+  return null;
 }
 
 function toAnchorSafeId(value: string): string {
@@ -393,12 +393,13 @@ function renderNotionBlock(
       );
     case "callout": {
       const calloutChildren = renderEmbeddedChildrenBlocks(data, key, notionPageId);
+      const calloutIcon = renderCalloutIcon(data, notionPageId);
       return (
         <aside
           key={key}
           className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
         >
-          <span className="mt-0.5 shrink-0">{renderCalloutIcon(data, notionPageId)}</span>
+          {calloutIcon ? <span className="mt-0.5 shrink-0">{calloutIcon}</span> : null}
           <div className="min-w-0 space-y-2">
             <div>{richText}</div>
             {calloutChildren}

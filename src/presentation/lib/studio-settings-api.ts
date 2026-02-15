@@ -1,29 +1,31 @@
 import { apiRequest } from "@/presentation/lib/api-client";
 import type { ApiResponse } from "@/presentation/types/api";
 import type {
-  NotionDataSourceSettingsDto,
   NotionSchemaMappingResultDto,
-  NotionDataSourceTestResultDto,
+  NotionModelSettingsDto,
+  NotionModelTemplate,
 } from "@/presentation/types/studio-settings";
 
-export async function getStudioNotionSettings(): Promise<ApiResponse<NotionDataSourceSettingsDto>> {
-  return apiRequest<NotionDataSourceSettingsDto>("/api/studio/settings/notion");
-}
-
-export async function updateStudioNotionSettings(input: {
-  blogDataSourceId: string;
-  resumeDataSourceId: string;
-}): Promise<ApiResponse<NotionDataSourceSettingsDto>> {
-  return apiRequest<NotionDataSourceSettingsDto>("/api/studio/settings/notion", {
-    method: "PATCH",
-    body: JSON.stringify(input),
+export async function getNotionModelSettings(): Promise<ApiResponse<NotionModelSettingsDto>> {
+  return apiRequest<NotionModelSettingsDto>("/api/studio/settings/notion/models", {
+    method: "GET",
   });
 }
 
-export async function testStudioNotionSettings(): Promise<ApiResponse<NotionDataSourceTestResultDto>> {
-  return apiRequest<NotionDataSourceTestResultDto>("/api/studio/settings/notion/test", {
+export async function refreshNotionModelSettings(): Promise<ApiResponse<NotionModelSettingsDto>> {
+  return apiRequest<NotionModelSettingsDto>("/api/studio/settings/notion/models/refresh", {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+export async function selectNotionModelSource(input: {
+  template: NotionModelTemplate;
+  dataSourceId: string;
+}): Promise<ApiResponse<NotionModelSettingsDto>> {
+  return apiRequest<NotionModelSettingsDto>("/api/studio/settings/notion/models/select-source", {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 
@@ -34,7 +36,7 @@ export async function getNotionSchemaMapping(): Promise<ApiResponse<NotionSchema
 }
 
 export async function updateNotionSchemaMapping(input: {
-  source: "blog" | "resume";
+  source: string;
   mappings: Record<string, string | null>;
 }): Promise<ApiResponse<NotionSchemaMappingResultDto>> {
   return apiRequest<NotionSchemaMappingResultDto>("/api/studio/settings/notion/schema-mapping", {

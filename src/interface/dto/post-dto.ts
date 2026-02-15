@@ -2,6 +2,7 @@ import type { Post } from "@/domain/post/post";
 
 export function toPostListItemDto(post: Post) {
   const pageIcon = extractPageIcon(post.contentJson);
+  const pageTimestamps = extractPageTimestamps(post.contentJson);
 
   return {
     id: post.id,
@@ -18,6 +19,8 @@ export function toPostListItemDto(post: Post) {
     syncError: post.syncError,
     pageIconEmoji: pageIcon.emoji,
     pageIconUrl: pageIcon.url,
+    notionPageCreatedTime: pageTimestamps.createdTime,
+    notionPageLastEditedTime: pageTimestamps.lastEditedTime,
   };
 }
 
@@ -44,6 +47,27 @@ function extractPageIcon(contentJson: Record<string, unknown>): { emoji: string 
   const emoji = typeof pageIcon.emoji === "string" ? pageIcon.emoji : null;
   const url = typeof pageIcon.url === "string" ? pageIcon.url : null;
   return { emoji, url };
+}
+
+function extractPageTimestamps(contentJson: Record<string, unknown>): {
+  createdTime: string | null;
+  lastEditedTime: string | null;
+} {
+  const notionMeta = contentJson._notion;
+  if (!isPlainObject(notionMeta)) {
+    return { createdTime: null, lastEditedTime: null };
+  }
+
+  const pageTimestamps = notionMeta.pageTimestamps;
+  if (!isPlainObject(pageTimestamps)) {
+    return { createdTime: null, lastEditedTime: null };
+  }
+
+  const createdTime = typeof pageTimestamps.createdTime === "string" ? pageTimestamps.createdTime : null;
+  const lastEditedTime =
+    typeof pageTimestamps.lastEditedTime === "string" ? pageTimestamps.lastEditedTime : null;
+
+  return { createdTime, lastEditedTime };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

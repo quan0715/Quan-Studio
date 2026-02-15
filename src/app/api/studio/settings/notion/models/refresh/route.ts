@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
-    const result = await getContainer().testStudioNotionSettingsUseCase.execute();
-    return jsonSuccess(result);
+    const settings = await getContainer().getNotionModelSettingsUseCase.execute();
+    return jsonSuccess(settings);
   });
 }

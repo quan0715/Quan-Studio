@@ -1,4 +1,12 @@
 import { AppError } from "@/application/errors";
+import {
+  getNotionModelById,
+  getNotionModelBySchemaSource,
+  listNotionModels,
+  listNotionSchemaSources,
+  type NotionModelId,
+  type NotionSchemaSource,
+} from "@/domain/notion-models/registry";
 
 type JsonObject = Record<string, unknown>;
 
@@ -13,19 +21,19 @@ type ManualEnqueuePayload = {
   dedupeKey: string;
 };
 
-type StudioNotionSettingsPayload = {
-  blogDataSourceId: string;
-  resumeDataSourceId: string;
-};
-
 type StudioLoginPayload = {
   username: string;
   password: string;
 };
 
 type StudioNotionSchemaMappingPayload = {
-  source: "blog" | "resume";
+  source: NotionSchemaSource;
   mappings: Record<string, string | null>;
+};
+
+type StudioNotionModelSelectSourcePayload = {
+  template: NotionModelId;
+  dataSourceId: string;
 };
 
 export async function parseNotionWebhookButtonPayload(
@@ -103,24 +111,6 @@ export function parseSyncJobsLimit(url: string, defaultLimit = 50): number {
   return parsed;
 }
 
-export async function parseStudioNotionSettingsPayload(
-  request: Request
-): Promise<StudioNotionSettingsPayload> {
-  const body = await parseJsonBody(request);
-
-  if (!isPlainObject(body)) {
-    throw new AppError("VALIDATION_ERROR", "request body must be an object");
-  }
-
-  const blogDataSourceId = readRequiredTrimmedString(body, "blogDataSourceId");
-  const resumeDataSourceId = readRequiredTrimmedString(body, "resumeDataSourceId");
-
-  return {
-    blogDataSourceId,
-    resumeDataSourceId,
-  };
-}
-
 export async function parseStudioLoginPayload(request: Request): Promise<StudioLoginPayload> {
   const body = await parseJsonBody(request);
 
@@ -143,10 +133,7 @@ export async function parseStudioNotionSchemaMappingPayload(
     throw new AppError("VALIDATION_ERROR", "request body must be an object");
   }
 
-  const sourceRaw = body.source;
-  if (sourceRaw !== "blog" && sourceRaw !== "resume") {
-    throw new AppError("VALIDATION_ERROR", "source must be blog or resume");
-  }
+  const source = parseSchemaSource(body.source);
 
   const mappingsRaw = body.mappings;
   if (!isPlainObject(mappingsRaw)) {
@@ -166,8 +153,26 @@ export async function parseStudioNotionSchemaMappingPayload(
   }
 
   return {
-    source: sourceRaw,
+    source,
     mappings,
+  };
+}
+
+export async function parseStudioNotionModelSelectSourcePayload(
+  request: Request
+): Promise<StudioNotionModelSelectSourcePayload> {
+  const body = await parseJsonBody(request);
+
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+
+  const template = parseModelTemplate(body.template);
+  const dataSourceId = readRequiredTrimmedString(body, "dataSourceId");
+
+  return {
+    template,
+    dataSourceId,
   };
 }
 
@@ -254,6 +259,36 @@ function readRequiredTrimmedString(payload: JsonObject, key: string): string {
   }
 
   return normalized;
+}
+
+function parseModelTemplate(value: unknown): NotionModelId {
+  if (typeof value !== "string") {
+    throw new AppError("VALIDATION_ERROR", "template is required");
+  }
+
+  const descriptor = getNotionModelById(value);
+  if (!descriptor) {
+    const allowed = listNotionModels()
+      .map((item) => item.id)
+      .join(", ");
+    throw new AppError("VALIDATION_ERROR", `template must be one of: ${allowed}`);
+  }
+  return descriptor.id as NotionModelId;
+}
+
+function parseSchemaSource(value: unknown): NotionSchemaSource {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new AppError("VALIDATION_ERROR", "source is required");
+  }
+
+  const normalized = value.trim();
+  const descriptor = getNotionModelBySchemaSource(normalized);
+  if (!descriptor) {
+    const allowed = listNotionSchemaSources().join(", ");
+    throw new AppError("VALIDATION_ERROR", `source must be one of: ${allowed}`);
+  }
+
+  return descriptor.schemaSource;
 }
 
 function isPlainObject(value: unknown): value is JsonObject {

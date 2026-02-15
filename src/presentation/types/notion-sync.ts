@@ -28,6 +28,7 @@ export type NotionDataSourcePageDto = {
   slug: string | null;
   status: string | null;
   tags: string[];
+  createdTime: string | null;
   lastEditedTime: string;
   lastSyncedAt: string | null;
   lastSyncedNotionEditedTime: string | null;

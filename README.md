@@ -53,6 +53,7 @@ Worker poll config (`docker/dev.env`):
 - `NOTION_SYNC_ACTIVE_POLL_INTERVAL_MS`: poll interval when queue is active (default `1000`)
 - `NOTION_SYNC_IDLE_POLL_INTERVAL_MS`: poll interval when queue is idle (default `15000`)
 - `NOTION_ENV_DATABASE_ID`: `NOTION.ENV` database id used by Studio Notion settings test
+- `NOTION_SOURCE_PAGE_ID`: Notion page id where Studio scans `child_database` blocks for model/source mapping
 - `STUDIO_SESSION_SECRET`: session signing secret for Studio auth cookie
 
 Studio login credentials are read from Notion `NOTION.ENV` (`KEY/VALUE`):
@@ -187,9 +188,11 @@ APIs:
 - `POST /api/studio/auth/logout`
 - `GET /api/studio/posts`
 - `GET /api/studio/notion/articles`
-- `GET /api/studio/settings/notion`
-- `PATCH /api/studio/settings/notion`
-- `POST /api/studio/settings/notion/test`
+- `GET /api/studio/settings/notion/models`
+- `POST /api/studio/settings/notion/models/refresh`
+- `PATCH /api/studio/settings/notion/models/select-source`
+- `GET /api/studio/settings/notion/schema-mapping`
+- `PATCH /api/studio/settings/notion/schema-mapping`
 - `GET /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs/process-next`

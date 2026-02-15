@@ -29,4 +29,8 @@ export type NotionDataSourcePageDto = {
   status: string | null;
   tags: string[];
   lastEditedTime: string;
+  lastSyncedAt: string | null;
+  lastSyncedNotionEditedTime: string | null;
+  requiresSync: boolean;
+  websiteUrl: string | null;
 };

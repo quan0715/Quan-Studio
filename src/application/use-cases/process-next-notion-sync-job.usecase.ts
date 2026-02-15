@@ -2,7 +2,7 @@ import { assertPostInvariants, type Post } from "@/domain/post/post";
 import type { PostRepository } from "@/domain/post/post-repository";
 import { normalizeSlug, resolveUniqueSlug } from "@/domain/post/slug";
 import type { NotionSyncJobRepository } from "@/domain/notion-sync/notion-sync-job-repository";
-import { NotionClient } from "@/infrastructure/notion/notion-client";
+import { NotionClient, type NotionSyncStatusLabel } from "@/infrastructure/notion/notion-client";
 
 type ProcessNextNotionSyncJobOutput =
   | { ok: true; processed: false }
@@ -11,6 +11,7 @@ type ProcessNextNotionSyncJobOutput =
 
 type NotionPage = {
   id: string;
+  created_time: string;
   last_edited_time: string;
   cover?: unknown;
   icon?: unknown;
@@ -37,6 +38,8 @@ export class ProcessNextNotionSyncJobUseCase {
       return { ok: true, processed: false };
     }
 
+    await this.syncStatusSafely(job.pageId, "Processing");
+
     try {
       const saved = await this.syncPage(job.pageId);
       await this.syncJobRepository.markStatus(job.id, "succeeded", {
@@ -46,6 +49,7 @@ export class ProcessNextNotionSyncJobUseCase {
         lockedAt: null,
         lockedBy: null,
       });
+      await this.syncStatusSafely(job.pageId, "Success");
 
       return { ok: true, processed: true, pageId: job.pageId, postId: saved.id };
     } catch (error) {
@@ -59,6 +63,7 @@ export class ProcessNextNotionSyncJobUseCase {
         lockedAt: null,
         lockedBy: null,
       });
+      await this.syncStatusSafely(job.pageId, "Failed");
       return { ok: false, processed: true, pageId: job.pageId, error: stringifyError(error) };
     }
   }
@@ -69,10 +74,14 @@ export class ProcessNextNotionSyncJobUseCase {
       return { ok: false, pageId: "", error: "pageId is required" };
     }
 
+    await this.syncStatusSafely(normalizedPageId, "Processing");
+
     try {
       const saved = await this.syncPage(normalizedPageId);
+      await this.syncStatusSafely(normalizedPageId, "Success");
       return { ok: true, pageId: normalizedPageId, postId: saved.id };
     } catch (error) {
+      await this.syncStatusSafely(normalizedPageId, "Failed");
       return {
         ok: false,
         pageId: normalizedPageId,
@@ -105,7 +114,7 @@ export class ProcessNextNotionSyncJobUseCase {
     const pageIcon = extractPageIcon(page.icon);
     const richTextProperties = extractRichTextProperties(page.properties);
     const notionLastEditedAt = parseDate(page.last_edited_time);
-    const publishedAt = parseDate(extractPropertyDate(page.properties, "Published At"));
+    const notionCreatedAt = parseDate(page.created_time);
 
     const existing = await this.postRepository.findByNotionPageId(page.id);
     const resolvedSlug = await resolveUniqueSlug(preferredSlug || normalizeSlug(page.id), async (candidate) => {
@@ -137,7 +146,10 @@ export class ProcessNextNotionSyncJobUseCase {
       status,
       contentJson,
       coverUrl,
-      publishedAt: status === "published" ? publishedAt ?? existing?.publishedAt ?? now : null,
+      publishedAt:
+        status === "published"
+          ? existing?.publishedAt ?? notionCreatedAt ?? notionLastEditedAt ?? now
+          : null,
       notionPageId: page.id,
       notionLastEditedAt,
       syncedAt: now,
@@ -148,6 +160,18 @@ export class ProcessNextNotionSyncJobUseCase {
 
     assertPostInvariants(post);
     return post;
+  }
+
+  private async syncStatusSafely(pageId: string, status: NotionSyncStatusLabel): Promise<void> {
+    try {
+      await this.notionClient.updatePageSyncStatus(pageId, status);
+    } catch (error) {
+      console.warn("[notion-sync] failed to update Sync Status", {
+        pageId,
+        status,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }
 
@@ -218,19 +242,6 @@ function extractPropertyStatus(properties: Record<string, unknown>, key: string)
   }
 
   return "draft";
-}
-
-function extractPropertyDate(properties: Record<string, unknown>, key: string): string | null {
-  const value = properties[key];
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const date = (value as Record<string, unknown>).date;
-  if (!date || typeof date !== "object") {
-    return null;
-  }
-  const start = (date as Record<string, unknown>).start;
-  return typeof start === "string" ? start : null;
 }
 
 function extractPropertyMultiSelectNames(

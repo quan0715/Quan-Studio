@@ -22,7 +22,7 @@ type NotionDataSourcePagesTableProps = {
   pages: NotionDataSourcePageDto[];
 };
 
-function formatDateLabel(value: string) {
+function formatDateLabel(value: string | null) {
   return formatIsoToUtcDateTime(value);
 }
 
@@ -49,6 +49,10 @@ function syncStatusBadgeVariant(
     default:
       return "outline";
   }
+}
+
+function syncCheckBadgeVariant(requiresSync: boolean): "default" | "outline" {
+  return requiresSync ? "default" : "outline";
 }
 
 type SyncStatusMap = Record<string, NotionSyncJobDto["status"]>;
@@ -195,6 +199,8 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
               <TableHead>Notion Status</TableHead>
               <TableHead>Sync Status</TableHead>
               <TableHead>Notion Updated</TableHead>
+              <TableHead>Last Synced</TableHead>
+              <TableHead>Sync Check</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -231,13 +237,35 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
                   )}
                 </TableCell>
                 <TableCell>{formatDateLabel(page.lastEditedTime)}</TableCell>
+                <TableCell>{formatDateLabel(page.lastSyncedAt)}</TableCell>
+                <TableCell>
+                  <div className="space-y-1">
+                    <Badge variant={syncCheckBadgeVariant(page.requiresSync)}>
+                      {page.requiresSync ? "Needs Update" : "Up to Date"}
+                    </Badge>
+                    <p className="text-muted-foreground text-[11px]">
+                      Last synced edit: {formatDateLabel(page.lastSyncedNotionEditedTime)}
+                    </p>
+                  </div>
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link href={page.url} target="_blank" rel="noreferrer noopener">
-                        Open
+                        Open Notion
                       </Link>
                     </Button>
+                    {page.websiteUrl ? (
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={page.websiteUrl} target="_blank" rel="noreferrer noopener">
+                          Open Blog
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        Open Blog
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       disabled={Boolean(activeSyncPages[page.pageId])}
@@ -253,7 +281,7 @@ export function NotionDataSourcePagesTable({ pages }: NotionDataSourcePagesTable
             ))}
             {pages.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground text-center text-sm">
+                <TableCell colSpan={8} className="text-muted-foreground text-center text-sm">
                   No pages found in configured blog data source.
                 </TableCell>
               </TableRow>

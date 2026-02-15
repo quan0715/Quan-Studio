@@ -1,6 +1,7 @@
 export const integrationConfigKeys = {
   notionBlogDataSourceId: "notion.blog.data_source_id",
   notionResumeDataSourceId: "notion.resume.data_source_id",
+  notionSchemaFieldMapping: "notion.schema.field_mapping",
 } as const;
 
 export type IntegrationConfigKey =

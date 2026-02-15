@@ -1,6 +1,8 @@
 import { AppError } from "@/application/errors";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
+import type { Post } from "@/domain/post/post";
+import type { PostRepository } from "@/domain/post/post-repository";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
 export type NotionDataSourcePage = {
@@ -11,6 +13,10 @@ export type NotionDataSourcePage = {
   status: string | null;
   tags: string[];
   lastEditedTime: string;
+  lastSyncedAt: string | null;
+  lastSyncedNotionEditedTime: string | null;
+  requiresSync: boolean;
+  websiteUrl: string | null;
 };
 
 type NotionQueryResponse = {
@@ -23,7 +29,8 @@ type NotionQueryResponse = {
 export class ListNotionDataSourcePagesUseCase {
   constructor(
     private readonly notionClient: NotionClient,
-    private readonly integrationConfigRepository: IntegrationConfigRepository
+    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly postRepository: PostRepository
   ) {}
 
   async execute(limit = 50): Promise<NotionDataSourcePage[]> {
@@ -36,14 +43,19 @@ export class ListNotionDataSourcePagesUseCase {
     }
 
     const response = (await this.notionClient.queryDataSourceWithId(dataSourceId, normalizedLimit)) as NotionQueryResponse;
+    const posts = await this.postRepository.listAll();
+    const postByPageId = new Map(posts.map((post) => [post.notionPageId, post]));
 
     return response.results
-      .map((page) => toNotionDataSourcePage(page))
+      .map((page) => toNotionDataSourcePage(page, postByPageId))
       .filter((page): page is NotionDataSourcePage => page !== null);
   }
 }
 
-function toNotionDataSourcePage(page: Record<string, unknown>): NotionDataSourcePage | null {
+function toNotionDataSourcePage(
+  page: Record<string, unknown>,
+  postByPageId: Map<string, Post>
+): NotionDataSourcePage | null {
   const objectType = page.object;
   if (objectType !== "page") {
     return null;
@@ -69,6 +81,8 @@ function toNotionDataSourcePage(page: Record<string, unknown>): NotionDataSource
   const slug = extractPropertyText(properties, "Slug");
   const status = extractPropertyStatus(properties, "Status");
   const tags = extractPropertyMultiSelectNames(properties, ["Tags", "Tag"]);
+  const syncedPost = postByPageId.get(pageId) ?? null;
+  const requiresSync = resolveRequiresSync(lastEditedTime, syncedPost?.notionLastEditedAt ?? null);
 
   return {
     pageId,
@@ -78,7 +92,27 @@ function toNotionDataSourcePage(page: Record<string, unknown>): NotionDataSource
     status,
     tags,
     lastEditedTime,
+    lastSyncedAt: syncedPost?.syncedAt?.toISOString() ?? null,
+    lastSyncedNotionEditedTime: syncedPost?.notionLastEditedAt?.toISOString() ?? null,
+    requiresSync,
+    websiteUrl:
+      syncedPost?.status === "published" && syncedPost.slug
+        ? `/blog/${encodeURIComponent(syncedPost.slug)}`
+        : null,
   };
+}
+
+function resolveRequiresSync(lastEditedTime: string, notionLastEditedAt: Date | null): boolean {
+  if (!notionLastEditedAt) {
+    return true;
+  }
+
+  const notionTimestamp = Date.parse(lastEditedTime);
+  if (Number.isNaN(notionTimestamp)) {
+    return true;
+  }
+
+  return notionTimestamp !== notionLastEditedAt.getTime();
 }
 
 function extractPropertyText(properties: Record<string, unknown>, key: string): string | null {

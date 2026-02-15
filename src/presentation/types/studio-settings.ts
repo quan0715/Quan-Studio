@@ -31,3 +31,35 @@ export type NotionDataSourceTestResultDto = {
     }>;
   };
 };
+
+export type NotionSchemaFieldCheckDto = {
+  appField: string;
+  description: string;
+  required: boolean;
+  expectedNotionField: string;
+  expectedType: string;
+  selectedNotionField: string | null;
+  matchedName: string | null;
+  actualType: string | null;
+  mappedExplicitly: boolean;
+  status: "ok" | "missing_required" | "missing_optional" | "type_mismatch";
+  message: string;
+};
+
+export type NotionSchemaMappingReportDto = {
+  source: "blog" | "resume";
+  dataSourceId: string;
+  configured: boolean;
+  ok: boolean;
+  message: string;
+  checks: NotionSchemaFieldCheckDto[];
+  availableProperties: Array<{
+    name: string;
+    type: string;
+  }>;
+};
+
+export type NotionSchemaMappingResultDto = {
+  generatedAt: string;
+  reports: NotionSchemaMappingReportDto[];
+};

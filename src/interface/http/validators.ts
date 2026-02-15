@@ -23,6 +23,11 @@ type StudioLoginPayload = {
   password: string;
 };
 
+type StudioNotionSchemaMappingPayload = {
+  source: "blog" | "resume";
+  mappings: Record<string, string | null>;
+};
+
 export async function parseNotionWebhookButtonPayload(
   request: Request,
   sharedSecret: string
@@ -126,6 +131,43 @@ export async function parseStudioLoginPayload(request: Request): Promise<StudioL
   return {
     username: readRequiredTrimmedString(body, "username"),
     password: readRequiredTrimmedString(body, "password"),
+  };
+}
+
+export async function parseStudioNotionSchemaMappingPayload(
+  request: Request
+): Promise<StudioNotionSchemaMappingPayload> {
+  const body = await parseJsonBody(request);
+
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+
+  const sourceRaw = body.source;
+  if (sourceRaw !== "blog" && sourceRaw !== "resume") {
+    throw new AppError("VALIDATION_ERROR", "source must be blog or resume");
+  }
+
+  const mappingsRaw = body.mappings;
+  if (!isPlainObject(mappingsRaw)) {
+    throw new AppError("VALIDATION_ERROR", "mappings must be an object");
+  }
+
+  const mappings: Record<string, string | null> = {};
+  for (const [appField, value] of Object.entries(mappingsRaw)) {
+    if (typeof appField !== "string" || !appField.trim()) {
+      throw new AppError("VALIDATION_ERROR", "invalid appField in mappings");
+    }
+    if (value !== null && typeof value !== "string") {
+      throw new AppError("VALIDATION_ERROR", `mapping value for ${appField} must be string or null`);
+    }
+
+    mappings[appField] = value;
+  }
+
+  return {
+    source: sourceRaw,
+    mappings,
   };
 }
 

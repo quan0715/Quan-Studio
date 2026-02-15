@@ -3,6 +3,7 @@ import { env } from "@/infrastructure/config/env";
 
 type NotionPageResponse = {
   id: string;
+  created_time: string;
   last_edited_time: string;
   properties: Record<string, unknown>;
 };
@@ -21,6 +22,11 @@ type NotionDataSourceQueryResponse = {
   next_cursor: string | null;
 };
 
+type NotionDataSourceResponse = {
+  id: string;
+  properties?: Record<string, unknown>;
+};
+
 type NotionDatabaseResponse = {
   id: string;
   url?: string;
@@ -29,6 +35,8 @@ type NotionDatabaseResponse = {
     name?: string;
   }>;
 };
+
+export type NotionSyncStatusLabel = "IDLE" | "Processing" | "Success" | "Failed";
 
 export class NotionClient {
   private readonly baseUrl = "https://api.notion.com/v1";
@@ -131,6 +139,46 @@ export class NotionClient {
     return this.queryDataSourceById(dataSourceId, pageSize, startCursor, "data source id");
   }
 
+  async retrieveDataSource(dataSourceId: string): Promise<NotionDataSourceResponse> {
+    if (!dataSourceId.trim()) {
+      throw new AppError("VALIDATION_ERROR", "data source id is not configured");
+    }
+
+    return this.request<NotionDataSourceResponse>(`/data_sources/${encodeURIComponent(dataSourceId)}`);
+  }
+
+  async updatePageProperties(pageId: string, properties: Record<string, unknown>): Promise<void> {
+    await this.request(`/pages/${encodeURIComponent(pageId)}`, {
+      method: "PATCH",
+      body: { properties },
+    });
+  }
+
+  async updatePageSyncStatus(pageId: string, status: NotionSyncStatusLabel): Promise<void> {
+    try {
+      await this.updatePageProperties(pageId, {
+        "Sync Status": {
+          status: {
+            name: status,
+          },
+        },
+      });
+    } catch (error) {
+      if (isNotionBadRequestError(error)) {
+        throw new AppError(
+          "NOTION_API_ERROR",
+          [
+            "Sync Status update failed. Please configure Notion DB property exactly as:",
+            '1) Property name: "Sync Status"',
+            "2) Property type: Status",
+            '3) Status options include: "IDLE", "Processing", "Success", "Failed"',
+          ].join(" ")
+        );
+      }
+      throw error;
+    }
+  }
+
   private async request<T>(
     path: string,
     options?: { method?: "GET" | "POST" | "PATCH"; body?: Record<string, unknown> }
@@ -151,7 +199,13 @@ export class NotionClient {
     });
 
     if (!response.ok) {
-      throw new AppError("NOTION_API_ERROR", `notion request failed with status ${response.status}`);
+      const errorText = await safeReadResponseText(response);
+      const suffix = errorText ? `: ${errorText}` : "";
+      throw new AppError("NOTION_API_ERROR", `notion request failed with status ${response.status}${suffix}`);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
     }
 
     return (await response.json()) as T;
@@ -183,6 +237,22 @@ export class NotionClient {
       }
     );
   }
+}
+
+async function safeReadResponseText(response: Response): Promise<string> {
+  try {
+    return (await response.text()).trim();
+  } catch {
+    return "";
+  }
+}
+
+function isNotionBadRequestError(error: unknown): boolean {
+  if (!(error instanceof AppError)) {
+    return false;
+  }
+
+  return error.code === "NOTION_API_ERROR" && error.message.includes("status 400");
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

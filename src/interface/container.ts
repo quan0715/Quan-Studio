@@ -1,5 +1,9 @@
 import { EnqueueNotionSyncJobUseCase } from "@/application/use-cases/enqueue-notion-sync-job.usecase";
 import { GetPublicPostBySlugUseCase } from "@/application/use-cases/get-public-post-by-slug.usecase";
+import {
+  GetNotionSchemaMappingUseCase,
+  UpdateNotionSchemaMappingUseCase,
+} from "@/application/use-cases/get-notion-schema-mapping.usecase";
 import { GetStudioPostByNotionPageIdUseCase } from "@/application/use-cases/get-studio-post-by-notion-page-id.usecase";
 import { ListPublicPostsUseCase } from "@/application/use-cases/list-public-posts.usecase";
 import { ListNotionDataSourcePagesUseCase } from "@/application/use-cases/list-notion-data-source-pages.usecase";
@@ -32,6 +36,8 @@ type Container = {
   getStudioNotionSettingsUseCase: GetStudioNotionSettingsUseCase;
   updateStudioNotionSettingsUseCase: UpdateStudioNotionSettingsUseCase;
   testStudioNotionSettingsUseCase: TestStudioNotionSettingsUseCase;
+  getNotionSchemaMappingUseCase: GetNotionSchemaMappingUseCase;
+  updateNotionSchemaMappingUseCase: UpdateNotionSchemaMappingUseCase;
 };
 
 declare global {
@@ -59,7 +65,10 @@ function createContainer(): Container {
     getStudioPostByNotionPageIdUseCase: new GetStudioPostByNotionPageIdUseCase(postRepository),
     listPublicPostsUseCase: new ListPublicPostsUseCase(postRepository),
     getPublicPostBySlugUseCase: new GetPublicPostBySlugUseCase(postRepository),
-    enqueueNotionSyncJobUseCase: new EnqueueNotionSyncJobUseCase(notionSyncJobRepository),
+    enqueueNotionSyncJobUseCase: new EnqueueNotionSyncJobUseCase(
+      notionSyncJobRepository,
+      notionClient
+    ),
     processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
       notionSyncJobRepository,
       postRepository,
@@ -68,16 +77,24 @@ function createContainer(): Container {
     listNotionSyncJobsUseCase: new ListNotionSyncJobsUseCase(notionSyncJobRepository),
     listNotionDataSourcePagesUseCase: new ListNotionDataSourcePagesUseCase(
       notionClient,
-      integrationConfigRepository
+      integrationConfigRepository,
+      postRepository
     ),
     listNotionResumeDataSourceUseCase: new ListNotionResumeDataSourceUseCase(
       notionClient,
       integrationConfigRepository
     ),
-    retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository),
+    retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository, notionClient),
     getStudioNotionSettingsUseCase,
     updateStudioNotionSettingsUseCase,
     testStudioNotionSettingsUseCase,
+    getNotionSchemaMappingUseCase: new GetNotionSchemaMappingUseCase(
+      notionClient,
+      integrationConfigRepository
+    ),
+    updateNotionSchemaMappingUseCase: new UpdateNotionSchemaMappingUseCase(
+      integrationConfigRepository
+    ),
   };
 }
 
@@ -108,6 +125,8 @@ function isContainerInitialized(container: Container | undefined): container is 
       container.retryNotionSyncJobUseCase &&
       container.getStudioNotionSettingsUseCase &&
       container.updateStudioNotionSettingsUseCase &&
-      container.testStudioNotionSettingsUseCase
+      container.testStudioNotionSettingsUseCase &&
+      container.getNotionSchemaMappingUseCase &&
+      container.updateNotionSchemaMappingUseCase
   );
 }

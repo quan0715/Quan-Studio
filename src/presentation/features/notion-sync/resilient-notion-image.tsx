@@ -58,11 +58,15 @@ export function ResilientNotionImage({
   const router = useRouter();
   const [hasError, setHasError] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const srcKey = useMemo(() => String(imageProps.src), [imageProps.src]);
+  const onImageLoad = imageProps.onLoad;
+  const onImageError = imageProps.onError;
 
   useEffect(() => {
     setHasError(false);
     setIsRecovering(false);
+    setIsLoaded(false);
   }, [srcKey]);
 
   const handleError = async (): Promise<void> => {
@@ -102,8 +106,17 @@ export function ResilientNotionImage({
     <Image
       {...imageProps}
       alt={alt}
-      className={className}
-      onError={() => {
+      className={cn(
+        "transition-all duration-500 ease-out",
+        isLoaded ? "scale-100 opacity-100 blur-0" : "scale-[1.02] opacity-0 blur-sm",
+        className
+      )}
+      onLoad={(event) => {
+        setIsLoaded(true);
+        onImageLoad?.(event);
+      }}
+      onError={(event) => {
+        onImageError?.(event);
         void handleError();
       }}
     />

@@ -138,14 +138,24 @@ function applyNotionAnnotations(text: ReactNode, item: RichTextItem): ReactNode 
   if (annotations.strikethrough) {
     content = <s>{content}</s>;
   }
+
+  const isCode = Boolean(annotations.code);
   if (annotations.code) {
-    content = <code className="rounded-sm bg-muted px-1 py-0.5 text-xs">{content}</code>;
+    content = (
+      <code className="inline-block rounded-md border border-border/70 bg-muted px-1.5 py-0.5 font-mono text-[11px] leading-none text-red-500 dark:text-red-400">
+        {content}
+      </code>
+    );
+  }
+
+  if (isCode) {
+    return content;
   }
 
   const color = annotations.color;
   if (typeof color === "string" && color !== "default") {
     if (color.endsWith("_background")) {
-      content = <span className="rounded-sm bg-muted px-1 py-0.5">{content}</span>;
+      content = <span className="rounded-none bg-muted px-1 py-0.5">{content}</span>;
     } else {
       content = <span className="text-primary">{content}</span>;
     }
@@ -226,7 +236,7 @@ function renderMediaCaption(data: Record<string, unknown>, key: string): ReactNo
 
 function renderUrlCard(key: string, label: string, url: string): ReactNode {
   return (
-    <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+    <div key={key} className="rounded-none border bg-muted/30 px-3 py-2 text-sm">
       <div className="font-medium">{label}</div>
       <a
         href={url}
@@ -261,8 +271,8 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
           width={20}
           height={20}
           unoptimized
-          className="h-5 w-5 rounded-sm object-cover"
-          fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
+          className="h-5 w-5 rounded-none object-cover"
+          fallbackClassName="h-5 w-5 rounded-none border-0 p-0 text-[10px]"
           fallbackLabel=""
         />
       );
@@ -279,8 +289,8 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
         width={20}
         height={20}
         unoptimized
-        className="h-5 w-5 rounded-sm object-cover"
-        fallbackClassName="h-5 w-5 rounded-sm border-0 p-0 text-[10px]"
+        className="h-5 w-5 rounded-none object-cover"
+        fallbackClassName="h-5 w-5 rounded-none border-0 p-0 text-[10px]"
         fallbackLabel=""
       />
     );
@@ -362,7 +372,7 @@ function renderNotionBlock(
 
       return (
         <div key={key} className="space-y-2">
-          <pre className="overflow-x-auto rounded-md border bg-muted/50 p-3 text-xs leading-6">
+          <pre className="overflow-x-auto rounded-none border bg-muted/50 p-3 text-xs leading-6">
             <code>{codeText}</code>
           </pre>
           <p className="text-xs text-muted-foreground">{language}</p>
@@ -386,7 +396,7 @@ function renderNotionBlock(
     }
     case "toggle":
       return (
-        <details key={key} className="rounded-md border px-3 py-2 text-sm">
+        <details key={key} className="rounded-none border px-3 py-2 text-sm">
           <summary className="cursor-pointer list-none font-medium">{richText}</summary>
           {children}
         </details>
@@ -397,7 +407,7 @@ function renderNotionBlock(
       return (
         <aside
           key={key}
-          className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"
+          className="flex items-start gap-2 rounded-none border border-border bg-muted/40 px-3 py-2 text-sm"
         >
           {calloutIcon ? <span className="mt-0.5 shrink-0">{calloutIcon}</span> : null}
           <div className="min-w-0 space-y-2">
@@ -410,7 +420,7 @@ function renderNotionBlock(
     case "equation": {
       const expression = typeof data.expression === "string" ? data.expression : "";
       return (
-        <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 font-mono text-sm">
+        <div key={key} className="rounded-none border bg-muted/30 px-3 py-2 font-mono text-sm">
           {expression || richText}
         </div>
       );
@@ -430,7 +440,7 @@ function renderNotionBlock(
             width={1600}
             height={900}
             unoptimized
-            className="h-auto max-h-[520px] w-full rounded-md border object-cover"
+            className="h-auto max-h-[520px] w-full rounded-none border object-cover"
             fallbackLabel="Image unavailable"
           />
           {renderMediaCaption(data, key)}
@@ -445,7 +455,7 @@ function renderNotionBlock(
 
       return (
         <figure key={key} className="space-y-2">
-          <video controls src={src} className="max-h-[520px] w-full rounded-md border bg-black" />
+          <video controls src={src} className="max-h-[520px] w-full rounded-none border bg-black" />
           {renderMediaCaption(data, key)}
         </figure>
       );
@@ -471,7 +481,7 @@ function renderNotionBlock(
 
       return (
         <figure key={key} className="space-y-2">
-          <iframe src={src} title="Notion PDF" className="h-[520px] w-full rounded-md border" />
+          <iframe src={src} title="Notion PDF" className="h-[520px] w-full rounded-none border" />
           {renderMediaCaption(data, key)}
         </figure>
       );
@@ -494,7 +504,7 @@ function renderNotionBlock(
           <iframe
             src={src}
             title="Notion embed"
-            className="aspect-video w-full rounded-md border"
+            className="aspect-video w-full rounded-none border"
             loading="lazy"
             allowFullScreen
           />
@@ -523,7 +533,7 @@ function renderNotionBlock(
       }
 
       return (
-        <div key={key} className="overflow-x-auto rounded-md border">
+        <div key={key} className="overflow-x-auto rounded-none border">
           <table className="w-full border-collapse text-sm">
             <tbody>
               {rows.map((row, rowIndex) => {
@@ -547,7 +557,7 @@ function renderNotionBlock(
     case "table_row": {
       const cells = Array.isArray(data.cells) ? data.cells : [];
       return (
-        <div key={key} className="overflow-x-auto rounded-md border">
+        <div key={key} className="overflow-x-auto rounded-none border">
           <table className="w-full border-collapse text-sm">
             <tbody>
               <tr>
@@ -579,7 +589,7 @@ function renderNotionBlock(
             const columnData = extractNotionBlockData(column);
             const columnChildren = asNotionBlocks(columnData.children);
             return (
-              <div key={column.id ?? `${key}-column-${index}`} className="space-y-2 rounded-md border p-3">
+              <div key={column.id ?? `${key}-column-${index}`} className="space-y-2 rounded-none border p-3">
                 {columnChildren.length
                   ? renderNotionBlocks(columnChildren, `${key}-column-${index}`, notionPageId)
                   : <p className="text-sm text-muted-foreground">Empty column</p>}
@@ -603,7 +613,7 @@ function renderNotionBlock(
     case "child_page": {
       const title = typeof data.title === "string" ? data.title : "Untitled Page";
       return (
-        <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+        <div key={key} className="rounded-none border bg-muted/30 px-3 py-2 text-sm">
           <div className="font-medium">Page</div>
           <div>{title}</div>
         </div>
@@ -612,7 +622,7 @@ function renderNotionBlock(
     case "child_database": {
       const title = typeof data.title === "string" ? data.title : "Untitled Database";
       return (
-        <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+        <div key={key} className="rounded-none border bg-muted/30 px-3 py-2 text-sm">
           <div className="font-medium">Database</div>
           <div>{title}</div>
         </div>
@@ -625,7 +635,7 @@ function renderNotionBlock(
         (targetType === "database_id" && typeof data.database_id === "string" && data.database_id) ||
         "unknown";
       return (
-        <div key={key} className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+        <div key={key} className="rounded-none border bg-muted/30 px-3 py-2 text-sm">
           <div className="font-medium">Link To {targetType === "database_id" ? "Database" : "Page"}</div>
           <div className="font-mono text-xs text-muted-foreground">{targetId}</div>
         </div>
@@ -634,7 +644,7 @@ function renderNotionBlock(
     case "synced_block": {
       const syncedFrom = isPlainObject(data.synced_from) ? data.synced_from.block_id : null;
       return (
-        <div key={key} className="space-y-2 rounded-md border bg-muted/20 p-3">
+        <div key={key} className="space-y-2 rounded-none border bg-muted/20 p-3">
           <p className="text-xs text-muted-foreground">
             {typeof syncedFrom === "string" ? `Synced from: ${syncedFrom}` : "Original synced block"}
           </p>
@@ -644,7 +654,7 @@ function renderNotionBlock(
     }
     case "template":
       return (
-        <div key={key} className="space-y-2 rounded-md border px-3 py-2 text-sm">
+        <div key={key} className="space-y-2 rounded-none border px-3 py-2 text-sm">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Template</p>
           <div>{richText}</div>
           {children}
@@ -658,7 +668,7 @@ function renderNotionBlock(
       return <p key={key} className="text-sm text-muted-foreground">Unsupported block type</p>;
     default:
       return (
-        <div key={key} className="space-y-2 rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+        <div key={key} className="space-y-2 rounded-none border border-dashed px-3 py-2 text-sm text-muted-foreground">
           <p>Unsupported block type: {type}</p>
           <div>{richText}</div>
           {children}

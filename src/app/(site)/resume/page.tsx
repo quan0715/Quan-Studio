@@ -61,7 +61,7 @@ function ResumeItemNode({
             <div className="mt-3 flex flex-wrap gap-1.5">
               {item.keywords.map((keyword) => (
                 <Badge key={keyword} variant="secondary">
-                  {keyword}
+                  #{keyword}
                 </Badge>
               ))}
             </div>
@@ -137,14 +137,14 @@ export default async function ResumePage() {
         >
           <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
             <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">{section.title}</h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-1.5 pt-1">
               {section.tags.map((tag) => (
-                <span
+                <p
                   key={tag}
-                  className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground"
+                  className="text-sm text-muted-foreground"
                 >
                   #{tag}
-                </span>
+                </p>
               ))}
             </div>
           </aside>

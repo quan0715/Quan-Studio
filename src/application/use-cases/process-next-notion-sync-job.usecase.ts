@@ -2,10 +2,12 @@ import {
   NotionModelMapperService,
   parseStoredNotionSchemaFieldMapping,
 } from "@/application/services/notion-model-mapper.service";
+import { isPlainObject } from "@/shared/utils/type-guards";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
 import {
   extractNotionFileLikeUrl,
+  extractPageIcon,
   normalizeNotionTimestamp,
 } from "@/domain/notion/notion-property-readers";
 import {
@@ -340,41 +342,6 @@ function extractFirstImageUrlFromBlocks(blocks: Array<Record<string, unknown>>):
   return null;
 }
 
-function extractPageIcon(icon: unknown): PostIconValue | null {
-  if (!isPlainObject(icon)) {
-    return null;
-  }
-
-  if (icon.type === "emoji") {
-    return {
-      emoji: typeof icon.emoji === "string" ? icon.emoji : null,
-      url: null,
-    };
-  }
-
-  if (icon.type === "external" && isPlainObject(icon.external)) {
-    return {
-      emoji: null,
-      url: typeof icon.external.url === "string" ? icon.external.url : null,
-    };
-  }
-
-  if (icon.type === "file" && isPlainObject(icon.file)) {
-    return {
-      emoji: null,
-      url: typeof icon.file.url === "string" ? icon.file.url : null,
-    };
-  }
-
-  if (icon.type === "custom_emoji" && isPlainObject(icon.custom_emoji)) {
-    return {
-      emoji: null,
-      url: typeof icon.custom_emoji.url === "string" ? icon.custom_emoji.url : null,
-    };
-  }
-
-  return null;
-}
 
 function extractRichTextProperties(properties: Record<string, unknown>): Record<string, unknown[]> {
   const result: Record<string, unknown[]> = {};
@@ -403,8 +370,4 @@ function toPlainRecord(value: unknown): Record<string, unknown> {
   }
 
   return value;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

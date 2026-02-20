@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import type { ApiResponse } from "@/presentation/types/api";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 const DEFAULT_SITE_URL = "http://localhost:3000";
 
@@ -150,9 +151,6 @@ function summarizeBody(value: string): string | null {
   return `Response snippet: ${snippet}`;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export async function serverApiRequest<T>(
   path: string,

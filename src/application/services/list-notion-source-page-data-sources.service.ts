@@ -1,5 +1,6 @@
 import { AppError } from "@/application/errors";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 type NotionBlockListResponse = {
   results: Array<Record<string, unknown>>;
@@ -139,8 +140,4 @@ function normalizeNonEmptyString(value: unknown): string | null {
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

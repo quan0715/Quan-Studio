@@ -6,6 +6,7 @@ import {
   toMappedString,
   toMappedStringArray,
 } from "@/application/services/notion-model-mapper.service";
+import { isPlainObject } from "@/shared/utils/type-guards";
 import type {
   NotionModelSchemaMappingDescriptor,
   NotionResumeGroupedProjectionDescriptor,
@@ -366,8 +367,4 @@ function extractSummaryBullets(summary: string | null): string[] {
   return lines
     .map((line) => line.replace(/^[-*•]\s*/, ""))
     .filter((line) => line.length > 0);
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

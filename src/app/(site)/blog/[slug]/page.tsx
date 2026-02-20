@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/compone
 import { PostCover, PostIcon } from "@/presentation/features/blog/post-visual";
 import { PostContentRenderer } from "@/presentation/features/post-renderer/post-content-renderer";
 import { formatIsoToUtcDate } from "@/presentation/lib/date-time";
+import { richTextToPlain } from "@/domain/notion/notion-property-readers";
+import { isPlainObject } from "@/shared/utils/type-guards";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
 import type { PostDetailDto } from "@/presentation/types/post";
 
@@ -45,10 +47,6 @@ export async function generateMetadata({
   };
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function toAnchorSafeId(value: string): string {
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
   return normalized.length > 0 ? normalized : "untitled";
@@ -57,24 +55,6 @@ function toAnchorSafeId(value: string): string {
 function resolveHeadingId(block: Record<string, unknown>, fallback: string): string {
   const raw = typeof block.id === "string" && block.id.trim().length > 0 ? block.id : fallback;
   return `h-${toAnchorSafeId(raw)}`;
-}
-
-function richTextToPlain(value: unknown): string {
-  if (!Array.isArray(value)) {
-    return "";
-  }
-
-  return value
-    .map((item) => {
-      if (!isPlainObject(item)) {
-        return "";
-      }
-
-      const plainText = item.plain_text;
-      return typeof plainText === "string" ? plainText : "";
-    })
-    .join("")
-    .trim();
 }
 
 function toBlocks(document: Record<string, unknown>): Record<string, unknown>[] {
@@ -101,7 +81,7 @@ function collectTocItems(blocks: Record<string, unknown>[], list: TocItem[]): vo
 
     if (headingLevel) {
       const data = isPlainObject(block[type]) ? block[type] as Record<string, unknown> : {};
-      const title = richTextToPlain(data.rich_text);
+      const title = richTextToPlain(Array.isArray(data.rich_text) ? data.rich_text : []);
       if (title) {
         list.push({
           id: resolveHeadingId(block, `${type}-${index}`),
@@ -154,13 +134,13 @@ function collectTextAndBlockCount(blocks: Record<string, unknown>[]): { text: st
     }
 
     const data = block[type] as Record<string, unknown>;
-    const richText = richTextToPlain(data.rich_text);
+    const richText = richTextToPlain(Array.isArray(data.rich_text) ? data.rich_text : []);
     if (richText) {
       texts.push(richText);
     }
 
     if (Array.isArray(data.caption)) {
-      const caption = richTextToPlain(data.caption);
+      const caption = richTextToPlain(Array.isArray(data.caption) ? data.caption : []);
       if (caption) {
         texts.push(caption);
       }

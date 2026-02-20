@@ -1,3 +1,5 @@
+import { isPlainObject } from "@/shared/utils/type-guards";
+
 export function extractPropertyText(
   properties: Record<string, unknown>,
   key: string
@@ -43,18 +45,6 @@ export function extractPropertyStatusName(
   return typeof status.name === "string" ? asNonEmpty(status.name) : null;
 }
 
-export function extractPropertySelectName(
-  properties: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = properties[key];
-  if (!isPlainObject(value) || !isPlainObject(value.select)) {
-    return null;
-  }
-
-  return typeof value.select.name === "string" ? asNonEmpty(value.select.name) : null;
-}
-
 export function extractPropertyMultiSelectNames(
   properties: Record<string, unknown>,
   keys: string[]
@@ -85,33 +75,6 @@ export function extractPropertyMultiSelectNames(
   }
 
   return [];
-}
-
-export function extractPropertyNumber(
-  properties: Record<string, unknown>,
-  key: string
-): number | null {
-  const value = properties[key];
-  if (!isPlainObject(value) || typeof value.number !== "number") {
-    return null;
-  }
-
-  return value.number;
-}
-
-export function extractPropertyDateRange(
-  properties: Record<string, unknown>,
-  key: string
-): { start: string | null; end: string | null } {
-  const value = properties[key];
-  if (!isPlainObject(value) || !isPlainObject(value.date)) {
-    return { start: null, end: null };
-  }
-
-  const start = typeof value.date.start === "string" ? asNonEmpty(value.date.start) : null;
-  const end = typeof value.date.end === "string" ? asNonEmpty(value.date.end) : null;
-
-  return { start, end };
 }
 
 export function extractNotionFileLikeUrl(value: unknown): string | null {
@@ -146,6 +109,42 @@ export function extractNotionFileLikeUrl(value: unknown): string | null {
   return null;
 }
 
+export function extractPageIcon(icon: unknown): { emoji: string | null; url: string | null } | null {
+  if (!isPlainObject(icon)) {
+    return null;
+  }
+
+  if (icon.type === "emoji") {
+    return {
+      emoji: typeof icon.emoji === "string" ? icon.emoji : null,
+      url: null,
+    };
+  }
+
+  if (icon.type === "external" && isPlainObject(icon.external)) {
+    return {
+      emoji: null,
+      url: typeof icon.external.url === "string" ? icon.external.url : null,
+    };
+  }
+
+  if (icon.type === "file" && isPlainObject(icon.file)) {
+    return {
+      emoji: null,
+      url: typeof icon.file.url === "string" ? icon.file.url : null,
+    };
+  }
+
+  if (icon.type === "custom_emoji" && isPlainObject(icon.custom_emoji)) {
+    return {
+      emoji: null,
+      url: typeof icon.custom_emoji.url === "string" ? icon.custom_emoji.url : null,
+    };
+  }
+
+  return null;
+}
+
 export function normalizeNotionTimestamp(value: string | null): string | null {
   if (!value) {
     return null;
@@ -169,7 +168,7 @@ function asNonEmpty(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function richTextToPlain(items: unknown[]): string {
+export function richTextToPlain(items: unknown[]): string {
   return items
     .map((item) => {
       if (!isPlainObject(item)) {
@@ -181,8 +180,4 @@ function richTextToPlain(items: unknown[]): string {
     })
     .join("")
     .trim();
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

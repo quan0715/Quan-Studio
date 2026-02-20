@@ -2,6 +2,8 @@ import type {
   NotionBuiltinSchemaCheck,
   NotionSchemaFieldExpectation,
 } from "@/domain/notion-models/model-descriptor";
+import { extractPageIcon, richTextToPlain } from "@/domain/notion/notion-property-readers";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 export type DataSourceProperty = {
   name: string;
@@ -387,41 +389,6 @@ function extractPageCoverUrl(cover: unknown): string | null {
   return null;
 }
 
-function extractPageIcon(icon: unknown): { emoji: string | null; url: string | null } | null {
-  if (!isPlainObject(icon)) {
-    return null;
-  }
-
-  if (icon.type === "emoji") {
-    return {
-      emoji: typeof icon.emoji === "string" ? icon.emoji : null,
-      url: null,
-    };
-  }
-
-  if (icon.type === "external" && isPlainObject(icon.external)) {
-    return {
-      emoji: null,
-      url: typeof icon.external.url === "string" ? icon.external.url : null,
-    };
-  }
-
-  if (icon.type === "file" && isPlainObject(icon.file)) {
-    return {
-      emoji: null,
-      url: typeof icon.file.url === "string" ? icon.file.url : null,
-    };
-  }
-
-  if (icon.type === "custom_emoji" && isPlainObject(icon.custom_emoji)) {
-    return {
-      emoji: null,
-      url: typeof icon.custom_emoji.url === "string" ? icon.custom_emoji.url : null,
-    };
-  }
-
-  return null;
-}
 
 function normalizeNotionTimestamp(value: string | null): string | null {
   if (!value) {
@@ -478,18 +445,6 @@ function extractMultiSelectNames(value: unknown): string[] {
     .filter((name) => name.length > 0);
 }
 
-function richTextToPlain(items: unknown[]): string {
-  return items
-    .map((item) => {
-      if (!isPlainObject(item)) {
-        return "";
-      }
-      const plainText = item.plain_text;
-      return typeof plainText === "string" ? plainText : "";
-    })
-    .join("");
-}
-
 function optionalText(value: string | null): string | null {
   if (!value) {
     return null;
@@ -502,9 +457,6 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export function toMappedString(value: unknown): string | null {
   return optionalText(typeof value === "string" ? value : null);

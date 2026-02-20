@@ -21,13 +21,3 @@ export function ResumeExportButton({
   );
 }
 
-export function ResumeExportActions() {
-  return (
-    <div className="space-y-2">
-      <ResumeExportButton label="Export Latest Resume (PDF)" className="w-full sm:w-auto" />
-      <p className="text-xs text-muted-foreground">
-        會開啟單頁式履歷並直接觸發列印，選擇「Save as PDF」即可下載。
-      </p>
-    </div>
-  );
-}

@@ -7,6 +7,7 @@ import {
   type NotionModelId,
   type NotionSchemaSource,
 } from "@/domain/notion-models/registry";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 type JsonObject = Record<string, unknown>;
 
@@ -289,8 +290,4 @@ function parseSchemaSource(value: unknown): NotionSchemaSource {
   }
 
   return descriptor.schemaSource;
-}
-
-function isPlainObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

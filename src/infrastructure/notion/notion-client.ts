@@ -1,5 +1,6 @@
 import { AppError } from "@/application/errors";
 import { env } from "@/infrastructure/config/env";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 type NotionPageResponse = {
   id: string;
@@ -253,8 +254,4 @@ function isNotionBadRequestError(error: unknown): boolean {
   }
 
   return error.code === "NOTION_API_ERROR" && error.message.includes("status 400");
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

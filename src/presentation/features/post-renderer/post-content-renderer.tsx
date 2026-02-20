@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { ResilientNotionImage } from "@/presentation/features/notion-sync/resilient-notion-image";
 import { cn } from "@/presentation/lib/utils";
+import { extractNotionFileLikeUrl, richTextToPlain } from "@/domain/notion/notion-property-readers";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 type PostContentRendererProps = {
   document?: Record<string, unknown> | null;
@@ -28,10 +30,6 @@ type NotionBlock = {
   type?: string;
   [key: string]: unknown;
 };
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function asRichText(value: unknown): RichTextItem[] {
   if (!Array.isArray(value)) {
@@ -93,30 +91,7 @@ function extractNotionBlockData(block: NotionBlock): Record<string, unknown> {
   return block[blockType] as Record<string, unknown>;
 }
 
-function extractMediaUrl(data: Record<string, unknown>): string | null {
-  if (typeof data.url === "string" && data.url.trim().length > 0) {
-    return data.url;
-  }
 
-  if (data.type === "external" && isPlainObject(data.external)) {
-    const url = data.external.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (data.type === "file" && isPlainObject(data.file)) {
-    const url = data.file.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  return null;
-}
-
-function toPlainText(items: RichTextItem[]): string {
-  return items
-    .map((item) => item.plain_text ?? "")
-    .join("")
-    .trim();
-}
 
 function applyNotionAnnotations(text: ReactNode, item: RichTextItem): ReactNode {
   let content = text;
@@ -226,7 +201,7 @@ function renderEmbeddedChildrenBlocks(
 }
 
 function renderMediaCaption(data: Record<string, unknown>, key: string): ReactNode {
-  const caption = toPlainText(asRichText(data.caption));
+  const caption = richTextToPlain(asRichText(data.caption));
   if (!caption) {
     return null;
   }
@@ -279,7 +254,7 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
     }
   }
 
-  const mediaIconUrl = extractMediaUrl(rawIcon);
+  const mediaIconUrl = extractNotionFileLikeUrl(rawIcon);
   if (mediaIconUrl) {
     return (
       <ResilientNotionImage
@@ -309,6 +284,106 @@ function resolveHeadingAnchorId(block: NotionBlock, fallbackKey: string): string
   return `h-${toAnchorSafeId(raw)}`;
 }
 
+const headingSizeMap: Record<string, { tag: "h1" | "h2" | "h3"; className: string }> = {
+  heading_1: { tag: "h1", className: "text-2xl" },
+  heading_2: { tag: "h2", className: "text-xl" },
+  heading_3: { tag: "h3", className: "text-lg" },
+};
+
+function renderHeadingBlock(
+  type: string,
+  key: string,
+  anchorId: string,
+  richText: ReactNode,
+  children: ReactNode
+): ReactNode {
+  const config = headingSizeMap[type];
+  if (!config) {
+    return null;
+  }
+  const Tag = config.tag;
+  return (
+    <div key={key} className="space-y-2">
+      <Tag id={anchorId} className={`scroll-mt-24 font-semibold leading-tight ${config.className}`}>
+        {richText}
+      </Tag>
+      {children}
+    </div>
+  );
+}
+
+function renderMediaFigure(
+  data: Record<string, unknown>,
+  key: string,
+  notionPageId: string | null | undefined
+): ReactNode {
+  const type = data._blockType as string;
+  const src = extractNotionFileLikeUrl(data);
+  if (!src) {
+    const label = (type ?? "Media").charAt(0).toUpperCase() + (type ?? "media").slice(1);
+    return <p key={key} className="text-sm text-muted-foreground">{label} unavailable.</p>;
+  }
+
+  let mediaElement: ReactNode;
+  switch (type) {
+    case "image":
+      mediaElement = (
+        <ResilientNotionImage
+          src={src}
+          alt={richTextToPlain(asRichText(data.caption)) || "Notion image"}
+          notionPageId={notionPageId}
+          width={1600}
+          height={900}
+          unoptimized
+          className="h-auto max-h-[520px] w-full rounded-none border object-cover"
+          fallbackLabel="Image unavailable"
+        />
+      );
+      break;
+    case "video":
+      mediaElement = <video controls src={src} className="max-h-[520px] w-full rounded-none border bg-black" />;
+      break;
+    case "audio":
+      mediaElement = <audio controls src={src} className="w-full" />;
+      break;
+    case "pdf":
+      mediaElement = <iframe src={src} title="Notion PDF" className="h-[520px] w-full rounded-none border" />;
+      break;
+    case "embed":
+      mediaElement = (
+        <iframe
+          src={src}
+          title="Notion embed"
+          className="aspect-video w-full rounded-none border"
+          loading="lazy"
+          allowFullScreen
+        />
+      );
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <figure key={key} className="space-y-2">
+      {mediaElement}
+      {renderMediaCaption(data, key)}
+    </figure>
+  );
+}
+
+function renderUrlCardBlock(
+  data: Record<string, unknown>,
+  key: string,
+  label: string
+): ReactNode {
+  const url = extractNotionFileLikeUrl(data);
+  if (!url) {
+    return <p key={key} className="text-sm text-muted-foreground">{label} unavailable.</p>;
+  }
+  return renderUrlCard(key, label, url);
+}
+
 function renderNotionBlock(
   block: NotionBlock,
   key: string,
@@ -318,40 +393,22 @@ function renderNotionBlock(
   const data = extractNotionBlockData(block);
   const richText = renderNotionRichText(asRichText(data.rich_text), key);
   const children = renderChildrenBlocks(data, key, notionPageId);
-  const headingAnchorId = resolveHeadingAnchorId(block, key);
+
+  if (type in headingSizeMap) {
+    const headingAnchorId = resolveHeadingAnchorId(block, key);
+    return renderHeadingBlock(type, key, headingAnchorId, richText, children);
+  }
+
+  const mediaTypes = new Set(["image", "video", "audio", "pdf", "embed"]);
+  if (mediaTypes.has(type)) {
+    return renderMediaFigure({ ...data, _blockType: type }, key, notionPageId);
+  }
 
   switch (type) {
     case "paragraph":
       return (
         <div key={key} className="space-y-2">
           <p className="text-sm leading-7">{richText}</p>
-          {children}
-        </div>
-      );
-    case "heading_1":
-      return (
-        <div key={key} className="space-y-2">
-          <h1 id={headingAnchorId} className="scroll-mt-24 text-2xl font-semibold leading-tight">
-            {richText}
-          </h1>
-          {children}
-        </div>
-      );
-    case "heading_2":
-      return (
-        <div key={key} className="space-y-2">
-          <h2 id={headingAnchorId} className="scroll-mt-24 text-xl font-semibold leading-tight">
-            {richText}
-          </h2>
-          {children}
-        </div>
-      );
-    case "heading_3":
-      return (
-        <div key={key} className="space-y-2">
-          <h3 id={headingAnchorId} className="scroll-mt-24 text-lg font-semibold leading-tight">
-            {richText}
-          </h3>
           {children}
         </div>
       );
@@ -425,107 +482,12 @@ function renderNotionBlock(
         </div>
       );
     }
-    case "image": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">Image unavailable.</p>;
-      }
-
-      return (
-        <figure key={key} className="space-y-2">
-          <ResilientNotionImage
-            src={src}
-            alt={toPlainText(asRichText(data.caption)) || "Notion image"}
-            notionPageId={notionPageId}
-            width={1600}
-            height={900}
-            unoptimized
-            className="h-auto max-h-[520px] w-full rounded-none border object-cover"
-            fallbackLabel="Image unavailable"
-          />
-          {renderMediaCaption(data, key)}
-        </figure>
-      );
-    }
-    case "video": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">Video unavailable.</p>;
-      }
-
-      return (
-        <figure key={key} className="space-y-2">
-          <video controls src={src} className="max-h-[520px] w-full rounded-none border bg-black" />
-          {renderMediaCaption(data, key)}
-        </figure>
-      );
-    }
-    case "audio": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">Audio unavailable.</p>;
-      }
-
-      return (
-        <figure key={key} className="space-y-2">
-          <audio controls src={src} className="w-full" />
-          {renderMediaCaption(data, key)}
-        </figure>
-      );
-    }
-    case "pdf": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">PDF unavailable.</p>;
-      }
-
-      return (
-        <figure key={key} className="space-y-2">
-          <iframe src={src} title="Notion PDF" className="h-[520px] w-full rounded-none border" />
-          {renderMediaCaption(data, key)}
-        </figure>
-      );
-    }
-    case "file": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">File unavailable.</p>;
-      }
-      return renderUrlCard(key, "File", src);
-    }
-    case "embed": {
-      const src = extractMediaUrl(data);
-      if (!src) {
-        return <p key={key} className="text-sm text-muted-foreground">Embed unavailable.</p>;
-      }
-
-      return (
-        <figure key={key} className="space-y-2">
-          <iframe
-            src={src}
-            title="Notion embed"
-            className="aspect-video w-full rounded-none border"
-            loading="lazy"
-            allowFullScreen
-          />
-          {renderMediaCaption(data, key)}
-        </figure>
-      );
-    }
-    case "bookmark": {
-      const url = extractMediaUrl(data);
-      if (!url) {
-        return <p key={key} className="text-sm text-muted-foreground">Bookmark unavailable.</p>;
-      }
-      return renderUrlCard(key, "Bookmark", url);
-    }
-    case "link_preview": {
-      const url = extractMediaUrl(data);
-      if (!url) {
-        return <p key={key} className="text-sm text-muted-foreground">Link preview unavailable.</p>;
-      }
-      return renderUrlCard(key, "Link Preview", url);
-    }
+    case "file":
+      return renderUrlCardBlock(data, key, "File");
+    case "bookmark":
+      return renderUrlCardBlock(data, key, "Bookmark");
+    case "link_preview":
+      return renderUrlCardBlock(data, key, "Link Preview");
     case "table": {
       const rows = asNotionBlocks(data.children).filter((row) => row.type === "table_row");
       if (!rows.length) {
@@ -677,6 +639,33 @@ function renderNotionBlock(
   }
 }
 
+function collectListItems(
+  blocks: NotionBlock[],
+  startIndex: number,
+  listType: string,
+  prefix: string,
+  notionPageId?: string | null
+): { items: ReactNode[]; nextIndex: number } {
+  const items: ReactNode[] = [];
+  let index = startIndex;
+
+  while (index < blocks.length && blocks[index].type === listType) {
+    const itemBlock = blocks[index];
+    const itemKey = itemBlock.id ?? `${prefix}-${listType}-${index}`;
+    const itemData = extractNotionBlockData(itemBlock);
+    const itemChildren = renderChildrenBlocks(itemData, itemKey, notionPageId);
+    items.push(
+      <li key={itemKey} className="ml-1 space-y-2">
+        <div>{renderNotionRichText(asRichText(itemData.rich_text), itemKey)}</div>
+        {itemChildren}
+      </li>
+    );
+    index += 1;
+  }
+
+  return { items, nextIndex: index - 1 };
+}
+
 function renderNotionBlocks(
   blocks: NotionBlock[],
   prefix = "block",
@@ -689,23 +678,8 @@ function renderNotionBlocks(
     const key = block.id ?? `${prefix}-${index}`;
 
     if (block.type === "bulleted_list_item") {
-      const items: ReactNode[] = [];
-
-      while (index < blocks.length && blocks[index].type === "bulleted_list_item") {
-        const itemBlock = blocks[index];
-        const itemKey = itemBlock.id ?? `${prefix}-bullet-${index}`;
-        const itemData = extractNotionBlockData(itemBlock);
-        const itemChildren = renderChildrenBlocks(itemData, itemKey, notionPageId);
-        items.push(
-          <li key={itemKey} className="ml-1 space-y-2">
-            <div>{renderNotionRichText(asRichText(itemData.rich_text), itemKey)}</div>
-            {itemChildren}
-          </li>
-        );
-        index += 1;
-      }
-
-      index -= 1;
+      const { items, nextIndex } = collectListItems(blocks, index, "bulleted_list_item", prefix, notionPageId);
+      index = nextIndex;
       nodes.push(
         <ul key={key} className="list-disc list-outside space-y-2 pl-6 text-sm leading-7">
           {items}
@@ -715,23 +689,8 @@ function renderNotionBlocks(
     }
 
     if (block.type === "numbered_list_item") {
-      const items: ReactNode[] = [];
-
-      while (index < blocks.length && blocks[index].type === "numbered_list_item") {
-        const itemBlock = blocks[index];
-        const itemKey = itemBlock.id ?? `${prefix}-number-${index}`;
-        const itemData = extractNotionBlockData(itemBlock);
-        const itemChildren = renderChildrenBlocks(itemData, itemKey, notionPageId);
-        items.push(
-          <li key={itemKey} className="ml-1 space-y-2">
-            <div>{renderNotionRichText(asRichText(itemData.rich_text), itemKey)}</div>
-            {itemChildren}
-          </li>
-        );
-        index += 1;
-      }
-
-      index -= 1;
+      const { items, nextIndex } = collectListItems(blocks, index, "numbered_list_item", prefix, notionPageId);
+      index = nextIndex;
       nodes.push(
         <ol key={key} className="list-decimal list-outside space-y-2 pl-7 text-sm leading-7">
           {items}

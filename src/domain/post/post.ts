@@ -22,7 +22,7 @@ export type Post = {
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export function assertValidTitle(title: string): void {
+function assertValidTitle(title: string): void {
   if (!title.trim()) {
     throw new Error("title must not be empty");
   }

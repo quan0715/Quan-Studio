@@ -1,4 +1,5 @@
 import type { Post } from "@/domain/post/post";
+import { isPlainObject } from "@/shared/utils/type-guards";
 
 export function toPostListItemDto(post: Post) {
   const pageIcon = extractPageIcon(post.contentJson);
@@ -68,8 +69,4 @@ function extractPageTimestamps(contentJson: Record<string, unknown>): {
     typeof pageTimestamps.lastEditedTime === "string" ? pageTimestamps.lastEditedTime : null;
 
   return { createdTime, lastEditedTime };
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

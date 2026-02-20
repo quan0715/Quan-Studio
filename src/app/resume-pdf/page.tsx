@@ -1,19 +1,8 @@
 import Image from "next/image";
 import { ResumePdfAutoPrint } from "@/presentation/features/resume/resume-pdf-autoprint";
+import { findGroup, findGroupInSections, findSection, normalizePeriod } from "@/presentation/lib/resume-helpers";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
-import type { ResumeGroup, ResumeResponse, ResumeSection } from "@/presentation/types/resume";
-
-function normalizePeriod(value?: string): string {
-  if (!value) {
-    return "";
-  }
-
-  if (value.toLowerCase() === "next") {
-    return "Incoming";
-  }
-
-  return value;
-}
+import type { ResumeResponse } from "@/presentation/types/resume";
 
 export default async function ResumePdfPage({
   searchParams,
@@ -260,40 +249,4 @@ export default async function ResumePdfPage({
       </article>
     </main>
   );
-}
-
-function findSection(sections: ResumeSection[], id: string, title: string): ResumeSection | undefined {
-  const idLower = id.toLowerCase();
-  const titleLower = title.toLowerCase();
-  return sections.find(
-    (section) => section.key.toLowerCase() === idLower || section.title.toLowerCase() === titleLower
-  );
-}
-
-function findGroup(section: ResumeSection | undefined, id: string, title: string): ResumeGroup | undefined {
-  if (!section) {
-    return undefined;
-  }
-
-  const idLower = id.toLowerCase();
-  const titleLower = title.toLowerCase();
-  return section.groups.find(
-    (group) => group.key.toLowerCase() === idLower || group.title.toLowerCase() === titleLower
-  );
-}
-
-function findGroupInSections(
-  sections: ResumeSection[],
-  matchers: Array<{ id: string; title: string }>
-): ResumeGroup | undefined {
-  for (const section of sections) {
-    for (const matcher of matchers) {
-      const match = findGroup(section, matcher.id, matcher.title);
-      if (match) {
-        return match;
-      }
-    }
-  }
-
-  return undefined;
 }

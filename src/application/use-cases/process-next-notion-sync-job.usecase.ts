@@ -9,6 +9,7 @@ import {
   extractNotionFileLikeUrl,
   extractPageIcon,
   normalizeNotionTimestamp,
+  optionalText,
 } from "@/domain/notion/notion-property-readers";
 import {
   getNotionModelById,
@@ -266,14 +267,6 @@ function parseDate(value: string | null): Date | null {
     return null;
   }
   return date;
-}
-
-function optionalText(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function buildPageTimestamps(

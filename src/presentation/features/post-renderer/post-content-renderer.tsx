@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ResilientNotionImage } from "@/presentation/features/notion-sync/resilient-notion-image";
-import { cn } from "@/presentation/lib/utils";
+import { cn, toAnchorSafeId } from "@/presentation/lib/utils";
 import { extractNotionFileLikeUrl, richTextToPlain } from "@/domain/notion/notion-property-readers";
 import { isPlainObject } from "@/shared/utils/type-guards";
 
@@ -270,11 +270,6 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
   }
 
   return null;
-}
-
-function toAnchorSafeId(value: string): string {
-  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-  return normalized.length > 0 ? normalized : "untitled";
 }
 
 function resolveHeadingAnchorId(block: NotionBlock, fallbackKey: string): string {

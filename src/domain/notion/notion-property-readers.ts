@@ -163,9 +163,16 @@ export function normalizeNotionTimestamp(value: string | null): string | null {
   return new Date(timestamp).toISOString();
 }
 
-function asNonEmpty(value: string): string | null {
+export function optionalText(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function asNonEmpty(value: string): string | null {
+  return optionalText(value);
 }
 
 export function richTextToPlain(items: unknown[]): string {

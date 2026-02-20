@@ -1,6 +1,6 @@
 import { AppError } from "@/application/errors";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
-import { isPlainObject } from "@/shared/utils/type-guards";
+import { isPlainObject, normalizeFieldName } from "@/shared/utils/type-guards";
 
 type NotionBlockListResponse = {
   results: Array<Record<string, unknown>>;
@@ -47,7 +47,7 @@ export class ListNotionSourcePageDataSourcesService {
     const candidates: SourcePageDataSourceCandidate[] = [];
     for (const ref of childDatabases) {
       const database = (await this.notionClient.retrieveDatabase(ref.databaseId)) as NotionDatabaseResponse;
-      const dataSourceId = normalizeNonEmptyString(database.data_sources?.[0]?.id);
+      const dataSourceId = normalizeFieldName(database.data_sources?.[0]?.id);
       if (!dataSourceId) {
         continue;
       }
@@ -56,7 +56,7 @@ export class ListNotionSourcePageDataSourcesService {
         databaseId: database.id,
         databaseTitle: readDatabaseTitle(database.title, ref.fallbackTitle),
         dataSourceId,
-        url: normalizeNonEmptyString(database.url),
+        url: normalizeFieldName(database.url),
       });
     }
 
@@ -132,12 +132,4 @@ function readDatabaseTitle(titleValue: unknown[] | undefined, fallbackTitle: str
   }
 
   return "Untitled";
-}
-
-function normalizeNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
 }

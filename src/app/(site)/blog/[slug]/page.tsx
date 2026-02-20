@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/compone
 import { PostCover, PostIcon } from "@/presentation/features/blog/post-visual";
 import { PostContentRenderer } from "@/presentation/features/post-renderer/post-content-renderer";
 import { formatIsoToUtcDate } from "@/presentation/lib/date-time";
+import { toAnchorSafeId } from "@/presentation/lib/utils";
 import { richTextToPlain } from "@/domain/notion/notion-property-readers";
 import { isPlainObject } from "@/shared/utils/type-guards";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
@@ -45,11 +46,6 @@ export async function generateMetadata({
     title: `${post.title} | Quan Studio`,
     description: post.excerpt ?? "Published article from Quan Studio.",
   };
-}
-
-function toAnchorSafeId(value: string): string {
-  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-  return normalized.length > 0 ? normalized : "untitled";
 }
 
 function resolveHeadingId(block: Record<string, unknown>, fallback: string): string {

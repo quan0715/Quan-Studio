@@ -2,8 +2,8 @@ import type {
   NotionBuiltinSchemaCheck,
   NotionSchemaFieldExpectation,
 } from "@/domain/notion-models/model-descriptor";
-import { extractPageIcon, richTextToPlain } from "@/domain/notion/notion-property-readers";
-import { isPlainObject } from "@/shared/utils/type-guards";
+import { extractPageIcon, normalizeNotionTimestamp, optionalText, richTextToPlain } from "@/domain/notion/notion-property-readers";
+import { isPlainObject, normalizeFieldName } from "@/shared/utils/type-guards";
 
 export type DataSourceProperty = {
   name: string;
@@ -196,14 +196,6 @@ function normalizeSourceMapping(value: unknown): Record<string, string> {
   return result;
 }
 
-function normalizeFieldName(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : null;
-}
-
 function resolveSelectedNotionField(
   expectation: NotionSchemaFieldExpectation,
   explicitMappings: Record<string, string>
@@ -390,22 +382,6 @@ function extractPageCoverUrl(cover: unknown): string | null {
 }
 
 
-function normalizeNotionTimestamp(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const date = new Date(trimmed);
-  if (Number.isNaN(date.getTime())) {
-    return trimmed;
-  }
-  return date.toISOString();
-}
-
 function extractDateRangeValue(value: unknown): MappedDateRangeValue {
   if (!isPlainObject(value)) {
     return {
@@ -443,14 +419,6 @@ function extractMultiSelectNames(value: unknown): string[] {
       return typeof name === "string" ? name.trim() : "";
     })
     .filter((name) => name.length > 0);
-}
-
-function optionalText(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function asArray(value: unknown): unknown[] {

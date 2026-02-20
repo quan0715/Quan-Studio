@@ -4,7 +4,10 @@ import {
 } from "@/application/services/notion-model-mapper.service";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import { normalizeNotionTimestamp } from "@/domain/notion/notion-property-readers";
+import {
+  extractNotionFileLikeUrl,
+  normalizeNotionTimestamp,
+} from "@/domain/notion/notion-property-readers";
 import {
   getNotionModelById,
   type NotionSchemaModelDescriptor,
@@ -332,24 +335,6 @@ function extractFirstImageUrlFromBlocks(blocks: Array<Record<string, unknown>>):
         return nested;
       }
     }
-  }
-
-  return null;
-}
-
-function extractNotionFileLikeUrl(value: unknown): string | null {
-  if (!isPlainObject(value)) {
-    return null;
-  }
-
-  if (value.type === "external" && isPlainObject(value.external)) {
-    const url = value.external.url;
-    return typeof url === "string" ? url : null;
-  }
-
-  if (value.type === "file" && isPlainObject(value.file)) {
-    const url = value.file.url;
-    return typeof url === "string" ? url : null;
   }
 
   return null;

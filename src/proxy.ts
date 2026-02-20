@@ -4,18 +4,21 @@ import {
   isStudioAuthEnabled,
   verifyStudioSessionToken,
 } from "@/infrastructure/auth/studio-auth";
+import { isInternalWorkerRequest } from "@/interface/http/internal-worker-auth";
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const isStudioPage = pathname.startsWith("/studio");
   const isStudioApi = pathname.startsWith("/api/studio");
-  const isProcessNextApi = pathname === "/api/studio/sync-jobs/process-next";
+  const isInternalWorkerApi =
+    pathname === "/api/studio/sync-jobs/process-next" ||
+    pathname === "/api/studio/sync-jobs/enqueue-published";
 
   if (!isStudioPage && !isStudioApi) {
     return NextResponse.next();
   }
 
-  if (isProcessNextApi && isInternalWorkerRequest(request)) {
+  if (isInternalWorkerApi && isInternalWorkerRequest(request)) {
     return NextResponse.next();
   }
 
@@ -58,17 +61,6 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   loginUrl.searchParams.set("next", pathname);
   return NextResponse.redirect(loginUrl);
 }
-
-function isInternalWorkerRequest(request: NextRequest): boolean {
-  const configuredSecret = (process.env.STUDIO_SESSION_SECRET ?? "").trim();
-  if (!configuredSecret) {
-    return false;
-  }
-
-  const incomingSecret = (request.headers.get("x-studio-internal-token") ?? "").trim();
-  return incomingSecret.length > 0 && incomingSecret === configuredSecret;
-}
-
 export const config = {
   matcher: ["/studio/:path*", "/api/studio/:path*"],
 };

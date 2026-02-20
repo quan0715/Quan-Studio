@@ -41,7 +41,6 @@ export function PostIcon({ post, size = "md", className }: PostIconProps) {
           notionPageId={post.notionPageId}
           width={44}
           height={44}
-          unoptimized
           className="h-full w-full object-cover"
           fallbackClassName="h-full w-full rounded-none border-0 bg-transparent p-0 text-[10px] text-current"
           fallbackLabel="?"
@@ -76,7 +75,6 @@ export function PostCover({
           alt={`${post.title} cover`}
           notionPageId={post.notionPageId}
           fill
-          unoptimized
           sizes="(max-width: 768px) 100vw, 760px"
           className={cn("object-cover", imageClassName)}
           fallbackClassName="h-full rounded-none border-0"

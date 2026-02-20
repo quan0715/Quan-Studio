@@ -245,7 +245,6 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
           notionPageId={notionPageId}
           width={20}
           height={20}
-          unoptimized
           className="h-5 w-5 rounded-none object-cover"
           fallbackClassName="h-5 w-5 rounded-none border-0 p-0 text-[10px]"
           fallbackLabel=""
@@ -263,7 +262,6 @@ function renderCalloutIcon(data: Record<string, unknown>, notionPageId?: string 
         notionPageId={notionPageId}
         width={20}
         height={20}
-        unoptimized
         className="h-5 w-5 rounded-none object-cover"
         fallbackClassName="h-5 w-5 rounded-none border-0 p-0 text-[10px]"
         fallbackLabel=""
@@ -334,7 +332,7 @@ function renderMediaFigure(
           notionPageId={notionPageId}
           width={1600}
           height={900}
-          unoptimized
+          sizes="(max-width: 768px) 100vw, 760px"
           className="h-auto max-h-[520px] w-full rounded-none border object-cover"
           fallbackLabel="Image unavailable"
         />

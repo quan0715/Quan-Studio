@@ -62,7 +62,6 @@ function ResumeItemNode({
                 alt={`${item.title} logo`}
                 width={64}
                 height={64}
-                unoptimized
                 className="h-full w-full object-contain"
               />
             </div>

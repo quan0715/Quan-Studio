@@ -8,6 +8,16 @@ export type DataSourceProperty = {
   type: string;
 };
 
+export type MappedDateRangeValue = {
+  start: string | null;
+  end: string | null;
+};
+
+export type MappedPageIconValue = {
+  emoji: string | null;
+  url: string | null;
+};
+
 export type NotionSchemaFieldCheck = {
   appField: string;
   description: string;
@@ -330,7 +340,7 @@ function extractPropertyValueByExpectedType(
     case "number":
       return typeof property.number === "number" ? property.number : null;
     case "date":
-      return extractDateValue(property.date);
+      return extractDateRangeValue(property.date);
     case "checkbox":
       return typeof property.checkbox === "boolean" ? property.checkbox : null;
     case "url":
@@ -429,12 +439,19 @@ function normalizeNotionTimestamp(value: string | null): string | null {
   return date.toISOString();
 }
 
-function extractDateValue(value: unknown): string | null {
+function extractDateRangeValue(value: unknown): MappedDateRangeValue {
   if (!isPlainObject(value)) {
-    return null;
+    return {
+      start: null,
+      end: null,
+    };
   }
-  const start = value.start;
-  return typeof start === "string" && start.trim().length > 0 ? start : null;
+  const start = typeof value.start === "string" && value.start.trim().length > 0 ? value.start : null;
+  const end = typeof value.end === "string" && value.end.trim().length > 0 ? value.end : null;
+  return {
+    start,
+    end,
+  };
 }
 
 function extractSelectName(value: unknown): string | null {
@@ -487,4 +504,53 @@ function asArray(value: unknown): unknown[] {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function toMappedString(value: unknown): string | null {
+  return optionalText(typeof value === "string" ? value : null);
+}
+
+export function toMappedNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function toMappedStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+export function toMappedDateRange(value: unknown): MappedDateRangeValue {
+  if (
+    isPlainObject(value) &&
+    ("start" in value || "end" in value)
+  ) {
+    return {
+      start: toMappedString(value.start),
+      end: toMappedString(value.end),
+    };
+  }
+
+  return {
+    start: null,
+    end: null,
+  };
+}
+
+export function toMappedPageIcon(value: unknown): MappedPageIconValue | null {
+  if (!isPlainObject(value)) {
+    return null;
+  }
+
+  const emoji = typeof value.emoji === "string" ? value.emoji : null;
+  const url = typeof value.url === "string" ? value.url : null;
+  if (!emoji && !url) {
+    return null;
+  }
+
+  return { emoji, url };
 }

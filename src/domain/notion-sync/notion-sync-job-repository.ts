@@ -13,6 +13,7 @@ export type EnqueueNotionSyncJobInput = {
 
 export interface NotionSyncJobRepository {
   enqueue(input: EnqueueNotionSyncJobInput): Promise<NotionSyncJob>;
+  findByDedupeKeys(dedupeKeys: string[]): Promise<NotionSyncJob[]>;
   claimNext(lockId: string): Promise<NotionSyncJob | null>;
   markStatus(
     id: string,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ResumeExportDock } from "@/presentation/features/resume/resume-export-dock";
 
 export default function SiteLayout({
   children,
@@ -28,6 +29,7 @@ export default function SiteLayout({
               </Link>
             ))}
           </nav>
+          <ResumeExportDock />
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 md:py-10">{children}</main>

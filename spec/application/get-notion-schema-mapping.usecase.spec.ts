@@ -85,6 +85,9 @@ describe("GetNotionSchemaMappingUseCase", () => {
     const expectedResumeFields = resumeNotionModel.schemaMapping
       ? resumeNotionModel.schemaMapping.expectations.map((item) => item.appField)
       : [];
+    const expectedResumeBuiltinFields = resumeNotionModel.schemaMapping
+      ? (resumeNotionModel.schemaMapping.builtinChecks ?? []).map((item) => item.appField)
+      : [];
 
     expect(blogReport).toBeDefined();
     expect(resumeReport).toBeDefined();
@@ -101,7 +104,17 @@ describe("GetNotionSchemaMappingUseCase", () => {
         .map((check) => check.appField)
     ).toEqual(expectedBlogBuiltinFields);
 
-    expect(resumeReport?.checks.map((check) => check.appField)).toEqual(expectedResumeFields);
+    expect(
+      resumeReport?.checks
+        .filter((check) => check.expectedType !== "builtin")
+        .map((check) => check.appField)
+    ).toEqual(expectedResumeFields);
+
+    expect(
+      resumeReport?.checks
+        .filter((check) => check.expectedType === "builtin")
+        .map((check) => check.appField)
+    ).toEqual(expectedResumeBuiltinFields);
   });
 });
 

@@ -29,6 +29,23 @@ export class PrismaNotionSyncJobRepository implements NotionSyncJobRepository {
     return this.toDomain(created);
   }
 
+  async findByDedupeKeys(dedupeKeys: string[]): Promise<NotionSyncJob[]> {
+    if (!dedupeKeys.length) {
+      return [];
+    }
+
+    const uniqueKeys = [...new Set(dedupeKeys)];
+    const jobs = await getPrismaClient().notionSyncJob.findMany({
+      where: {
+        dedupeKey: {
+          in: uniqueKeys,
+        },
+      },
+    });
+
+    return jobs.map((job) => this.toDomain(job));
+  }
+
   async claimNext(lockId: string): Promise<NotionSyncJob | null> {
     const now = new Date();
     const job = await getPrismaClient().notionSyncJob.findFirst({

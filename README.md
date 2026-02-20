@@ -52,6 +52,8 @@ Services:
 Worker poll config (`docker/dev.env`):
 - `NOTION_SYNC_ACTIVE_POLL_INTERVAL_MS`: poll interval when queue is active (default `1000`)
 - `NOTION_SYNC_IDLE_POLL_INTERVAL_MS`: poll interval when queue is idle (default `15000`)
+- `NOTION_SYNC_PUBLISHED_SCHEDULE_ENABLED`: enable hourly published-page enqueue (default `true`)
+- `NOTION_SYNC_PUBLISHED_SCHEDULE_INTERVAL_MS`: schedule interval for published-page enqueue (default `3600000`)
 - `NOTION_ENV_DATABASE_ID`: `NOTION.ENV` database id used by Studio Notion settings test
 - `NOTION_SOURCE_PAGE_ID`: Notion page id where Studio scans `child_database` blocks for model/source mapping
 - `STUDIO_SESSION_SECRET`: session signing secret for Studio auth cookie
@@ -99,6 +101,7 @@ Fill `docker/prod.env` with real values, especially:
 - `NOTION_*`
 - `CLOUDFLARED_TOKEN`
 - `NEXT_PUBLIC_SITE_URL`
+- `NOTION_SYNC_PUBLISHED_SCHEDULE_*`
 
 ### Deploy command (manual)
 
@@ -196,6 +199,7 @@ APIs:
 - `GET /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs/process-next`
+- `POST /api/studio/sync-jobs/enqueue-published`
 - `POST /api/studio/sync-jobs/[id]/retry`
 - `POST /api/integrations/notion/webhook/button`
 

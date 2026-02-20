@@ -16,7 +16,7 @@ function parseLimit(url: string, fallback = 200): number {
 export async function GET(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
     const limit = parseLimit(request.url, 200);
-    const sections = await getContainer().listNotionResumeDataSourceUseCase.execute(limit);
-    return jsonSuccess(sections);
+    const resume = await getContainer().listNotionResumeDataSourceUseCase.execute(limit);
+    return jsonSuccess(resume);
   });
 }

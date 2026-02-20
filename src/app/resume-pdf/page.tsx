@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { ResumePdfAutoPrint } from "@/presentation/features/resume/resume-pdf-autoprint";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
-import type { ResumeGroup, ResumeSection } from "@/presentation/types/resume";
+import type { ResumeGroup, ResumeResponse, ResumeSection } from "@/presentation/types/resume";
 
 function normalizePeriod(value?: string): string {
   if (!value) {
@@ -22,7 +22,7 @@ export default async function ResumePdfPage({
 }) {
   const params = await searchParams;
   const shouldAutoPrint = params.autoprint === "1";
-  const response = await serverApiRequest<ResumeSection[]>("/api/public/resume?limit=500");
+  const response = await serverApiRequest<ResumeResponse>("/api/public/resume?limit=500");
   if (!response.ok) {
     return (
       <main className="bg-neutral-100 p-6 print:bg-white print:p-0">
@@ -39,7 +39,7 @@ export default async function ResumePdfPage({
     );
   }
 
-  const sections = response.data;
+  const sections = response.data.sections;
   if (sections.length === 0) {
     return (
       <main className="bg-neutral-100 p-6 print:bg-white print:p-0">
@@ -56,23 +56,23 @@ export default async function ResumePdfPage({
   const aboutSection = findSection(sections, "about", "About");
   const workSection = findSection(sections, "work-experience", "Work Experience");
 
-  const profileItem = findGroup(aboutSection, "profile", "Profile")?.items[0];
-  const educationItems = findGroup(aboutSection, "education", "Education")?.items ?? [];
-  const skillItems = findGroup(aboutSection, "skills", "Skills")?.items ?? [];
+  const profileItem = findGroup(aboutSection, "profile", "Profile")?.entries[0];
+  const educationItems = findGroup(aboutSection, "education", "Education")?.entries ?? [];
+  const skillItems = findGroup(aboutSection, "skills", "Skills")?.entries ?? [];
   const awardItems =
     findGroupInSections(sections, [
       { id: "awards", title: "Awards" },
       { id: "award", title: "Award" },
-    ])?.items ?? [];
+    ])?.entries ?? [];
   const certificationItems =
     findGroupInSections(sections, [
       { id: "certifications", title: "Certifications" },
       { id: "certification", title: "Certification" },
-    ])?.items ?? [];
+    ])?.entries ?? [];
 
   const experienceItems =
     workSection?.groups.flatMap((group) =>
-      group.items.map((item) => ({
+      group.entries.map((item) => ({
         ...item,
         organization: group.title,
       }))
@@ -112,7 +112,7 @@ export default async function ResumePdfPage({
               <p>Taiwan</p>
             </div>
           </div>
-          <p className="mt-3 text-[12px] leading-5 text-neutral-800">{profileItem?.summary}</p>
+          <p className="mt-3 text-[12px] leading-5 text-neutral-800">{profileItem?.summary.text}</p>
         </header>
 
         <section className="mt-4 grid grid-cols-[1.05fr_1.95fr] gap-5">
@@ -136,13 +136,13 @@ export default async function ResumePdfPage({
               </h2>
               <div className="mt-2 space-y-2">
                 {educationItems.map((item) => (
-                  <article key={item.id} className="rounded border border-neutral-200 p-2">
+                  <article key={item.key} className="rounded border border-neutral-200 p-2">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.logoUrl ? (
+                      {item.media.logoUrl ? (
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
                           <Image
-                            src={item.logoUrl}
+                            src={item.media.logoUrl}
                             alt={`${item.title} logo`}
                             width={32}
                             height={32}
@@ -153,7 +153,7 @@ export default async function ResumePdfPage({
                       ) : null}
                     </div>
                     <p className="mt-1 text-[10px] text-neutral-700">
-                      {normalizePeriod(item.period)} · {item.subtitle}
+                      {normalizePeriod(item.period.label ?? "")}
                     </p>
                   </article>
                 ))}
@@ -166,9 +166,9 @@ export default async function ResumePdfPage({
               </h2>
               <div className="mt-2 space-y-2">
                 {skillItems.map((item) => (
-                  <article key={item.id}>
+                  <article key={item.key}>
                     <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                    <p className="text-[10px] leading-4 text-neutral-700">{item.summary}</p>
+                    <p className="text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
                   </article>
                 ))}
               </div>
@@ -181,17 +181,15 @@ export default async function ResumePdfPage({
                 </h2>
                 <div className="mt-2 space-y-2">
                   {awardItems.map((item) => (
-                    <article key={item.id} className="rounded border border-neutral-200 p-2">
+                    <article key={item.key} className="rounded border border-neutral-200 p-2">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.period || item.subtitle ? (
+                      {item.period.label ? (
                         <p className="mt-1 text-[10px] text-neutral-700">
-                          {normalizePeriod(item.period)}
-                          {item.period && item.subtitle ? " · " : ""}
-                          {item.subtitle}
+                          {normalizePeriod(item.period.label)}
                         </p>
                       ) : null}
-                      {item.summary ? (
-                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary}</p>
+                      {item.summary.text ? (
+                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
                       ) : null}
                     </article>
                   ))}
@@ -206,17 +204,15 @@ export default async function ResumePdfPage({
                 </h2>
                 <div className="mt-2 space-y-2">
                   {certificationItems.map((item) => (
-                    <article key={item.id} className="rounded border border-neutral-200 p-2">
+                    <article key={item.key} className="rounded border border-neutral-200 p-2">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.period || item.subtitle ? (
+                      {item.period.label ? (
                         <p className="mt-1 text-[10px] text-neutral-700">
-                          {normalizePeriod(item.period)}
-                          {item.period && item.subtitle ? " · " : ""}
-                          {item.subtitle}
+                          {normalizePeriod(item.period.label)}
                         </p>
                       ) : null}
-                      {item.summary ? (
-                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary}</p>
+                      {item.summary.text ? (
+                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
                       ) : null}
                     </article>
                   ))}
@@ -231,18 +227,18 @@ export default async function ResumePdfPage({
             </h2>
             <div className="mt-2 space-y-2.5">
               {experienceItems.map((item) => (
-                <article key={item.id} className="rounded border border-neutral-200 p-2.5">
+                <article key={item.key} className="rounded border border-neutral-200 p-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.organization}</p>
-                      {item.period ? (
-                        <p className="text-[10px] font-medium text-amber-700">{item.period}</p>
+                      {item.period.label ? (
+                        <p className="text-[10px] font-medium text-amber-700">{item.period.label}</p>
                       ) : null}
                     </div>
-                    {item.logoUrl ? (
+                    {item.media.logoUrl ? (
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
                         <Image
-                          src={item.logoUrl}
+                          src={item.media.logoUrl}
                           alt={`${item.title} logo`}
                           width={32}
                           height={32}
@@ -253,8 +249,8 @@ export default async function ResumePdfPage({
                     ) : null}
                   </div>
                   <p className="mt-1 text-[11px] font-semibold text-neutral-800">{item.title}</p>
-                  {item.summary ? (
-                    <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary}</p>
+                  {item.summary.text ? (
+                    <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
                   ) : null}
                 </article>
               ))}
@@ -270,7 +266,7 @@ function findSection(sections: ResumeSection[], id: string, title: string): Resu
   const idLower = id.toLowerCase();
   const titleLower = title.toLowerCase();
   return sections.find(
-    (section) => section.id.toLowerCase() === idLower || section.title.toLowerCase() === titleLower
+    (section) => section.key.toLowerCase() === idLower || section.title.toLowerCase() === titleLower
   );
 }
 
@@ -281,7 +277,9 @@ function findGroup(section: ResumeSection | undefined, id: string, title: string
 
   const idLower = id.toLowerCase();
   const titleLower = title.toLowerCase();
-  return section.groups.find((group) => group.id.toLowerCase() === idLower || group.title.toLowerCase() === titleLower);
+  return section.groups.find(
+    (group) => group.key.toLowerCase() === idLower || group.title.toLowerCase() === titleLower
+  );
 }
 
 function findGroupInSections(

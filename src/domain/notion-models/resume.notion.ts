@@ -1,7 +1,9 @@
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import {
   defineNotionModel,
+  type NotionBuiltinSchemaCheck,
   type NotionSchemaFieldExpectation,
+  type NotionResumeGroupedProjectionDescriptor,
 } from "@/domain/notion-models/model-descriptor";
 
 const resumeSchemaExpectations: NotionSchemaFieldExpectation[] = [
@@ -77,6 +79,58 @@ const resumeSchemaExpectations: NotionSchemaFieldExpectation[] = [
   },
 ];
 
+const resumeBuiltinChecks: NotionBuiltinSchemaCheck[] = [
+  {
+    appField: "resume.logo",
+    description: "履歷項目 logo（使用 Notion 內建 page icon）",
+    notionField: "page.icon",
+    expectedType: "builtin",
+    message: "Uses Notion built-in page icon as logo.",
+  },
+];
+
+const resumeProjection: NotionResumeGroupedProjectionDescriptor = {
+  kind: "resume_grouped",
+  fields: {
+    sectionTitle: "resume.section",
+    groupTitle: "resume.group",
+    entryTitle: "resume.name",
+    summaryText: "resume.summary",
+    periodDateRange: "resume.date",
+    tags: "resume.tags",
+    sectionOrder: "resume.sectionOrder",
+    groupOrder: "resume.groupOrder",
+    itemOrder: "resume.itemOrder",
+    visibility: "resume.visibility",
+    logo: "resume.logo",
+  },
+  visibility: {
+    privateValue: "private",
+  },
+  defaults: {
+    sectionTitle: "General",
+    groupTitle: "General",
+    entryTitle: "Untitled",
+    maxOrder: Number.MAX_SAFE_INTEGER,
+  },
+  sectionOrderFallback: {
+    about: 10,
+    "work-experience": 20,
+    experience: 20,
+    projects: 30,
+    project: 30,
+    education: 40,
+    skills: 50,
+    awards: 60,
+    award: 60,
+    certifications: 70,
+    certification: 70,
+  },
+  period: {
+    presentLabel: "Present",
+  },
+};
+
 export const resumeNotionModel = defineNotionModel({
   id: "resume",
   label: "Resume",
@@ -85,5 +139,7 @@ export const resumeNotionModel = defineNotionModel({
   schemaSource: "resume",
   schemaMapping: {
     expectations: resumeSchemaExpectations,
+    builtinChecks: resumeBuiltinChecks,
   },
+  projection: resumeProjection,
 });

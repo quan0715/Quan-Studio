@@ -23,6 +23,38 @@ export type NotionModelSchemaMappingDescriptor = {
   builtinChecks?: NotionBuiltinSchemaCheck[];
 };
 
+export type NotionResumeGroupedProjectionDescriptor = {
+  kind: "resume_grouped";
+  fields: {
+    sectionTitle: string;
+    groupTitle: string;
+    entryTitle: string;
+    summaryText: string;
+    periodDateRange: string;
+    tags: string;
+    sectionOrder: string;
+    groupOrder: string;
+    itemOrder: string;
+    visibility: string;
+    logo: string;
+  };
+  visibility: {
+    privateValue: string;
+  };
+  defaults: {
+    sectionTitle: string;
+    groupTitle: string;
+    entryTitle: string;
+    maxOrder: number;
+  };
+  sectionOrderFallback: Record<string, number>;
+  period: {
+    presentLabel: string;
+  };
+};
+
+export type NotionModelProjectionDescriptor = NotionResumeGroupedProjectionDescriptor;
+
 export type NotionModelDescriptor = {
   id: string;
   label: string;
@@ -30,6 +62,7 @@ export type NotionModelDescriptor = {
   dataSourceConfigKey: IntegrationConfigKey;
   schemaSource: NotionModelSchemaSource;
   schemaMapping?: NotionModelSchemaMappingDescriptor;
+  projection?: NotionModelProjectionDescriptor;
 };
 
 export function defineNotionModel<T extends NotionModelDescriptor>(descriptor: T): T {
@@ -56,6 +89,12 @@ export function defineNotionModel<T extends NotionModelDescriptor>(descriptor: T
   if (!descriptor.schemaSource && descriptor.schemaMapping) {
     throw new Error(
       `notion model ${descriptor.id} cannot define schemaMapping without schemaSource`
+    );
+  }
+
+  if (descriptor.projection && !descriptor.schemaMapping) {
+    throw new Error(
+      `notion model ${descriptor.id} cannot define projection without schemaMapping`
     );
   }
 
@@ -98,6 +137,65 @@ export function defineNotionModel<T extends NotionModelDescriptor>(descriptor: T
       if (!field.message.trim()) {
         throw new Error(
           `notion model ${descriptor.id} contains empty builtin message for ${field.appField}`
+        );
+      }
+    }
+  }
+
+  if (descriptor.projection?.kind === "resume_grouped") {
+    const {
+      fields,
+      visibility,
+      defaults,
+      sectionOrderFallback,
+      period,
+    } = descriptor.projection;
+    const fieldValues = Object.values(fields);
+
+    for (const value of fieldValues) {
+      if (!value.trim()) {
+        throw new Error(`notion model ${descriptor.id} projection fields must be non-empty`);
+      }
+    }
+
+    if (!visibility.privateValue.trim()) {
+      throw new Error(`notion model ${descriptor.id} projection visibility.privateValue is required`);
+    }
+    if (!defaults.sectionTitle.trim() || !defaults.groupTitle.trim() || !defaults.entryTitle.trim()) {
+      throw new Error(`notion model ${descriptor.id} projection defaults titles are required`);
+    }
+    if (!Number.isFinite(defaults.maxOrder) || defaults.maxOrder < 0) {
+      throw new Error(`notion model ${descriptor.id} projection defaults.maxOrder must be a valid number`);
+    }
+    if (!period.presentLabel.trim()) {
+      throw new Error(`notion model ${descriptor.id} projection period.presentLabel is required`);
+    }
+
+    for (const [key, order] of Object.entries(sectionOrderFallback)) {
+      if (!key.trim()) {
+        throw new Error(`notion model ${descriptor.id} projection sectionOrderFallback key is empty`);
+      }
+      if (!Number.isFinite(order)) {
+        throw new Error(
+          `notion model ${descriptor.id} projection sectionOrderFallback value must be numeric`
+        );
+      }
+    }
+
+    const schemaMapping = descriptor.schemaMapping;
+    if (!schemaMapping) {
+      throw new Error(`notion model ${descriptor.id} projection requires schemaMapping`);
+    }
+
+    const allowedAppFields = new Set([
+      ...schemaMapping.expectations.map((field) => field.appField),
+      ...(schemaMapping.builtinChecks ?? []).map((field) => field.appField),
+    ]);
+
+    for (const appField of fieldValues) {
+      if (!allowedAppFields.has(appField)) {
+        throw new Error(
+          `notion model ${descriptor.id} projection field references unknown appField: ${appField}`
         );
       }
     }

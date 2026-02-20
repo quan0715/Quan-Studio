@@ -1,26 +1,45 @@
-export type ResumeItem = {
-  id: string;
+export type ResumeEntry = {
+  key: string;
   title: string;
-  logoUrl?: string;
-  period?: string;
-  organization?: string;
-  subtitle?: string;
-  summary?: string;
-  bullets?: string[];
-  keywords?: string[];
-  highlightWord?: string;
+  period: {
+    label: string | null;
+    start: string | null;
+    end: string | null;
+  };
+  summary: {
+    text: string | null;
+    bullets: string[];
+  };
+  tags: string[];
+  media: {
+    logoUrl: string | null;
+  };
+  sort: {
+    itemOrder: number | null;
+    periodStart: string | null;
+  };
 };
 
 export type ResumeGroup = {
-  id: string;
+  key: string;
   title: string;
-  description?: string;
-  items: ResumeItem[];
+  order: number;
+  entries: ResumeEntry[];
 };
 
 export type ResumeSection = {
-  id: string;
+  key: string;
   title: string;
+  order: number;
   tags: string[];
   groups: ResumeGroup[];
 };
+
+export type ResumeResponse = {
+  meta: {
+    generatedAt: string;
+    dataSourceId: string;
+  };
+  sections: ResumeSection[];
+};
+

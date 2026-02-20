@@ -49,6 +49,8 @@ services:
 
         active_interval_ms="$${NOTION_SYNC_ACTIVE_POLL_INTERVAL_MS:-1000}"
         idle_interval_ms="$${NOTION_SYNC_IDLE_POLL_INTERVAL_MS:-15000}"
+        published_schedule_enabled_raw="$${NOTION_SYNC_PUBLISHED_SCHEDULE_ENABLED:-true}"
+        published_schedule_interval_ms="$${NOTION_SYNC_PUBLISHED_SCHEDULE_INTERVAL_MS:-3600000}"
 
         active_interval_sec=$$(expr "$$active_interval_ms" / 1000)
         if [ "$$active_interval_sec" -lt 1 ]; then
@@ -60,7 +62,28 @@ services:
           idle_interval_sec=1
         fi
 
+        published_schedule_interval_sec=$$(expr "$$published_schedule_interval_ms" / 1000)
+        if [ "$$published_schedule_interval_sec" -lt 1 ]; then
+          published_schedule_interval_sec=1
+        fi
+
+        published_schedule_enabled=$$(echo "$$published_schedule_enabled_raw" | tr '[:upper:]' '[:lower:]')
+        last_published_enqueue_at=0
+
         while true; do
+          if [ "$$published_schedule_enabled" = "true" ] || [ "$$published_schedule_enabled" = "1" ]; then
+            now=$$(date +%s)
+            elapsed=$$((now - last_published_enqueue_at))
+            if [ "$$last_published_enqueue_at" -eq 0 ] || [ "$$elapsed" -ge "$$published_schedule_interval_sec" ]; then
+              if ! curl -fsS -X POST \
+                -H "x-studio-internal-token: $$STUDIO_SESSION_SECRET" \
+                http://next:3000/api/studio/sync-jobs/enqueue-published >/dev/null; then
+                echo "[worker] failed to enqueue published sync jobs" >&2
+              fi
+              last_published_enqueue_at=$$now
+            fi
+          fi
+
           response=$$(curl -fsS -X POST \
             -H "x-studio-internal-token: $$STUDIO_SESSION_SECRET" \
             http://next:3000/api/studio/sync-jobs/process-next || true)

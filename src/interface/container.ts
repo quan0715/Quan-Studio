@@ -1,4 +1,5 @@
 import { EnqueueNotionSyncJobUseCase } from "@/application/use-cases/enqueue-notion-sync-job.usecase";
+import { EnqueuePublishedNotionSyncJobsUseCase } from "@/application/use-cases/enqueue-published-notion-sync-jobs.usecase";
 import { GetPublicPostBySlugUseCase } from "@/application/use-cases/get-public-post-by-slug.usecase";
 import {
   GetNotionSchemaMappingUseCase,
@@ -28,6 +29,7 @@ type Container = {
   listPublicPostsUseCase: ListPublicPostsUseCase;
   getPublicPostBySlugUseCase: GetPublicPostBySlugUseCase;
   enqueueNotionSyncJobUseCase: EnqueueNotionSyncJobUseCase;
+  enqueuePublishedNotionSyncJobsUseCase: EnqueuePublishedNotionSyncJobsUseCase;
   processNextNotionSyncJobUseCase: ProcessNextNotionSyncJobUseCase;
   listNotionSyncJobsUseCase: ListNotionSyncJobsUseCase;
   listNotionDataSourcePagesUseCase: ListNotionDataSourcePagesUseCase;
@@ -68,6 +70,10 @@ function createContainer(): Container {
     enqueueNotionSyncJobUseCase: new EnqueueNotionSyncJobUseCase(
       notionSyncJobRepository,
       notionClient
+    ),
+    enqueuePublishedNotionSyncJobsUseCase: new EnqueuePublishedNotionSyncJobsUseCase(
+      postRepository,
+      notionSyncJobRepository
     ),
     processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
       notionSyncJobRepository,
@@ -118,6 +124,7 @@ function isContainerInitialized(container: Container | undefined): container is 
       container.listPublicPostsUseCase &&
       container.getPublicPostBySlugUseCase &&
       container.enqueueNotionSyncJobUseCase &&
+      container.enqueuePublishedNotionSyncJobsUseCase &&
       container.processNextNotionSyncJobUseCase &&
       container.listNotionSyncJobsUseCase &&
       container.listNotionDataSourcePagesUseCase &&

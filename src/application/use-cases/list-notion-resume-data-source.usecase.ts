@@ -1,14 +1,16 @@
 import { AppError } from "@/application/errors";
+import { BuildResumeGroupedViewService, type ResumeSectionView } from "@/application/services/build-resume-grouped-view.service";
+import {
+  NotionModelMapperService,
+  parseStoredNotionSchemaFieldMapping,
+} from "@/application/services/notion-model-mapper.service";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import {
-  extractNotionFileLikeUrl,
-  extractPropertyDateRange,
-  extractPropertyMultiSelectNames,
-  extractPropertyNumber,
-  extractPropertySelectName,
-  extractPropertyText,
-} from "@/domain/notion/notion-property-readers";
+import type {
+  NotionModelDescriptor,
+  NotionResumeGroupedProjectionDescriptor,
+} from "@/domain/notion-models/model-descriptor";
+import { getNotionModelById } from "@/domain/notion-models/registry";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
 type NotionQueryResponse = {
@@ -18,77 +20,30 @@ type NotionQueryResponse = {
   next_cursor: string | null;
 };
 
-type ResumeRow = {
-  pageId: string;
-  section: string;
-  group: string;
-  name: string;
-  logoUrl: string | null;
-  summary: string | null;
-  period: string | null;
-  periodSortIso: string | null;
-  bullets: string[];
-  tags: string[];
-  sectionOrder: number;
-  groupOrder: number;
-  itemOrder: number | null;
-};
-
-export type ResumeItemOutput = {
-  id: string;
-  title: string;
-  logoUrl?: string;
-  period?: string;
-  organization?: string;
-  subtitle?: string;
-  summary?: string;
-  bullets?: string[];
-  keywords?: string[];
-  highlightWord?: string;
-};
-
-export type ResumeGroupOutput = {
-  id: string;
-  title: string;
-  description?: string;
-  items: ResumeItemOutput[];
-};
-
-export type ResumeSectionOutput = {
-  id: string;
-  title: string;
-  tags: string[];
-  groups: ResumeGroupOutput[];
-};
-
-type MutableResumeSection = ResumeSectionOutput & {
-  groupIndexMap: Map<string, number>;
-};
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const DEFAULT_SECTION_ORDER: Record<string, number> = {
-  about: 10,
-  "work-experience": 20,
-  experience: 20,
-  projects: 30,
-  project: 30,
-  education: 40,
-  skills: 50,
-  awards: 60,
-  award: 60,
-  certifications: 70,
-  certification: 70,
+export type ResumeResponseOutput = {
+  meta: {
+    generatedAt: string;
+    dataSourceId: string;
+  };
+  sections: ResumeSectionView[];
 };
 
 export class ListNotionResumeDataSourceUseCase {
+  private readonly buildResumeGroupedViewService: BuildResumeGroupedViewService;
+
   constructor(
     private readonly notionClient: NotionClient,
     private readonly integrationConfigRepository: IntegrationConfigRepository
-  ) {}
+  ) {
+    const notionModelMapperService = new NotionModelMapperService();
+    this.buildResumeGroupedViewService = new BuildResumeGroupedViewService(notionModelMapperService);
+  }
 
-  async execute(limit = 200): Promise<ResumeSectionOutput[]> {
+  async execute(limit = 200): Promise<ResumeResponseOutput> {
     const normalizedLimit = Math.min(Math.max(Math.floor(limit), 1), 500);
-    const configured = await this.integrationConfigRepository.findByKey(integrationConfigKeys.notionResumeDataSourceId);
+    const configured = await this.integrationConfigRepository.findByKey(
+      integrationConfigKeys.notionResumeDataSourceId
+    );
     const dataSourceId = configured?.value.trim() ?? "";
 
     if (!dataSourceId) {
@@ -100,7 +55,11 @@ export class ListNotionResumeDataSourceUseCase {
 
     while (pages.length < normalizedLimit) {
       const pageSize = Math.min(100, normalizedLimit - pages.length);
-      const response = (await this.notionClient.queryDataSourceWithId(dataSourceId, pageSize, cursor)) as NotionQueryResponse;
+      const response = (await this.notionClient.queryDataSourceWithId(
+        dataSourceId,
+        pageSize,
+        cursor
+      )) as NotionQueryResponse;
       pages.push(...response.results);
 
       if (!response.has_more || !response.next_cursor) {
@@ -109,271 +68,50 @@ export class ListNotionResumeDataSourceUseCase {
       cursor = response.next_cursor;
     }
 
-    const rows = pages
-      .map((page) => toResumeRow(page))
-      .filter((row): row is ResumeRow => row !== null)
-      .sort(compareResumeRows);
+    const resumeModel = getResumeModel();
+    const schemaFieldMappingRaw = await this.integrationConfigRepository.findByKey(
+      integrationConfigKeys.notionSchemaFieldMapping
+    );
+    const storedMapping = parseStoredNotionSchemaFieldMapping(schemaFieldMappingRaw?.value ?? "");
+    const explicitMappings = storedMapping.sources[resumeModel.schemaSource] ?? {};
 
-    return toSections(rows);
+    const sections = this.buildResumeGroupedViewService.build({
+      pages,
+      model: resumeModel,
+      explicitMappings,
+    });
+
+    return {
+      meta: {
+        generatedAt: new Date().toISOString(),
+        dataSourceId,
+      },
+      sections,
+    };
   }
 }
 
-function toResumeRow(page: Record<string, unknown>): ResumeRow | null {
-  if (page.object !== "page") {
-    return null;
+function getResumeModel(): {
+  id: string;
+  schemaSource: string;
+  schemaMapping: NonNullable<NotionModelDescriptor["schemaMapping"]>;
+  projection: NotionResumeGroupedProjectionDescriptor;
+} {
+  const model = getNotionModelById("resume");
+  if (
+    !model ||
+    !model.schemaSource ||
+    !model.schemaMapping ||
+    !model.projection ||
+    model.projection.kind !== "resume_grouped"
+  ) {
+    throw new AppError("INTERNAL_ERROR", "resume model descriptor is not configured correctly");
   }
-
-  const pageId = typeof page.id === "string" ? page.id : "";
-  if (!pageId) {
-    return null;
-  }
-
-  const properties = isPlainObject(page.properties) ? page.properties : {};
-  const visibility = extractPropertySelectName(properties, "Visibility");
-  if (visibility && visibility.toLowerCase() === "private") {
-    return null;
-  }
-
-  const section = extractPropertySelectName(properties, "Section") ?? "General";
-  const group = extractPropertyText(properties, "Group") ?? "General";
-  const name = extractPropertyText(properties, "Name") ?? "Untitled";
-  const logoUrl = extractNotionFileLikeUrl(page.icon);
-  const summary = extractPropertyText(properties, "Summary");
-  const periodData = extractPeriodData(properties);
-  const period = periodData.label;
-  const periodSortIso = periodData.sortIso;
-  const bullets = extractSummaryBullets(summary);
-  const tags = extractPropertyMultiSelectNames(properties, ["Tags"]);
-  const sectionOrder = extractPropertyNumber(properties, "Section Order") ?? defaultSectionOrder(section);
-  const groupOrder = extractPropertyNumber(properties, "Group Order") ?? Number.MAX_SAFE_INTEGER;
-  const itemOrder = extractPropertyNumber(properties, "Item Order");
 
   return {
-    pageId,
-    section,
-    group,
-    name,
-    logoUrl,
-    summary,
-    period,
-    periodSortIso,
-    bullets,
-    tags,
-    sectionOrder,
-    groupOrder,
-    itemOrder,
+    id: model.id,
+    schemaSource: model.schemaSource,
+    schemaMapping: model.schemaMapping,
+    projection: model.projection,
   };
-}
-
-function toSections(rows: ResumeRow[]): ResumeSectionOutput[] {
-  const sectionMap = new Map<string, MutableResumeSection>();
-  const order: string[] = [];
-
-  for (const row of rows) {
-    const sectionId = normalizeId(row.section);
-    let section = sectionMap.get(sectionId);
-    if (!section) {
-      section = {
-        id: sectionId,
-        title: row.section,
-        tags: [],
-        groups: [],
-        groupIndexMap: new Map<string, number>(),
-      };
-      sectionMap.set(sectionId, section);
-      order.push(sectionId);
-    }
-
-    for (const tag of row.tags) {
-      if (!section.tags.includes(tag)) {
-        section.tags.push(tag);
-      }
-    }
-
-    const groupId = normalizeId(row.group);
-    let groupIndex = section.groupIndexMap.get(groupId);
-    if (groupIndex === undefined) {
-      groupIndex = section.groups.length;
-      section.groupIndexMap.set(groupId, groupIndex);
-      section.groups.push({
-        id: groupId,
-        title: row.group,
-        items: [],
-      });
-    }
-
-    section.groups[groupIndex].items.push(toResumeItem(row));
-  }
-
-  return order.map((sectionId) => {
-    const section = sectionMap.get(sectionId);
-    if (!section) {
-      return {
-        id: sectionId,
-        title: sectionId,
-        tags: [],
-        groups: [],
-      };
-    }
-
-    return {
-      id: section.id,
-      title: section.title,
-      tags: section.tags,
-      groups: section.groups,
-    };
-  });
-}
-
-function toResumeItem(row: ResumeRow): ResumeItemOutput {
-  const item: ResumeItemOutput = {
-    id: row.pageId,
-    title: row.name,
-  };
-
-  if (row.period) {
-    item.period = row.period;
-  }
-  if (row.logoUrl) {
-    item.logoUrl = row.logoUrl;
-  }
-  if (row.summary) {
-    item.summary = row.summary;
-  }
-  if (row.bullets.length > 0) {
-    item.bullets = row.bullets;
-  }
-  if (row.tags.length > 0) {
-    item.keywords = row.tags;
-  }
-
-  return item;
-}
-
-function compareResumeRows(a: ResumeRow, b: ResumeRow): number {
-  if (a.sectionOrder !== b.sectionOrder) {
-    return a.sectionOrder - b.sectionOrder;
-  }
-  if (a.section !== b.section) {
-    return a.section.localeCompare(b.section);
-  }
-
-  if (a.groupOrder !== b.groupOrder) {
-    return a.groupOrder - b.groupOrder;
-  }
-  if (a.group !== b.group) {
-    return a.group.localeCompare(b.group);
-  }
-
-  if (a.itemOrder !== null && b.itemOrder !== null && a.itemOrder !== b.itemOrder) {
-    return a.itemOrder - b.itemOrder;
-  }
-  if (a.itemOrder !== null && b.itemOrder === null) {
-    return -1;
-  }
-  if (a.itemOrder === null && b.itemOrder !== null) {
-    return 1;
-  }
-
-  const aTimestamp = parseIsoToTimestamp(a.periodSortIso);
-  const bTimestamp = parseIsoToTimestamp(b.periodSortIso);
-  if (aTimestamp !== bTimestamp) {
-    return bTimestamp - aTimestamp;
-  }
-
-  return a.name.localeCompare(b.name);
-}
-
-function extractPeriodData(properties: Record<string, unknown>): { label: string | null; sortIso: string | null } {
-  const range = extractPropertyDateRange(properties, "Date");
-  if (range.start || range.end) {
-    return {
-      label: formatPeriodLabel(range.start, range.end),
-      sortIso: range.start ?? range.end,
-    };
-  }
-
-  return { label: null, sortIso: null };
-}
-
-function extractSummaryBullets(summary: string | null): string[] {
-  if (!summary) {
-    return [];
-  }
-
-  const lines = summary
-    .split("\n")
-    .map((line) => line.trim());
-
-  if (lines.length === 0) {
-    return [];
-  }
-
-  const hasExplicitBullets = lines.some((line) => /^[-*•]\s+/.test(line));
-  if (!hasExplicitBullets && lines.length === 1) {
-    return [];
-  }
-
-  return lines.map((line) => line.replace(/^[-*•]\s*/, ""));
-}
-
-function formatDateLabel(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-}
-
-function formatPeriodLabel(start: string | null, end: string | null): string | null {
-  const startLabel = start ? formatDateLabel(start) : null;
-  const endLabel = end ? formatDateLabel(end) : null;
-
-  if (startLabel && endLabel) {
-    return `${startLabel} - ${endLabel}`;
-  }
-  if (startLabel && !endLabel) {
-    return `${startLabel} - Present`;
-  }
-  if (startLabel) {
-    return startLabel;
-  }
-  if (endLabel) {
-    return endLabel;
-  }
-
-  return null;
-}
-
-function parseIsoToTimestamp(value: string | null): number {
-  if (!value) {
-    return Number.MIN_SAFE_INTEGER;
-  }
-
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) {
-    return Number.MIN_SAFE_INTEGER;
-  }
-
-  return parsed;
-}
-
-function defaultSectionOrder(section: string): number {
-  const normalized = normalizeId(section);
-  return DEFAULT_SECTION_ORDER[normalized] ?? Number.MAX_SAFE_INTEGER;
-}
-
-function normalizeId(value: string): string {
-  const normalized = value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return normalized || "untitled";
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

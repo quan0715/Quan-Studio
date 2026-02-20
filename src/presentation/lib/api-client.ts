@@ -1,29 +1,7 @@
 import type { ApiResponse } from "@/presentation/types/api";
+import { parseApiResponse } from "@/presentation/lib/parse-api-response";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-
-async function parseResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
-
-  if (payload && typeof payload === "object" && "ok" in payload) {
-    return payload;
-  }
-
-  if (response.ok) {
-    return {
-      ok: true,
-      data: payload as T,
-    };
-  }
-
-  return {
-    ok: false,
-    error: {
-      code: "UNEXPECTED_ERROR",
-      message: "Unexpected response format.",
-    },
-  };
-}
 
 export async function apiRequest<T>(
   path: string,
@@ -40,7 +18,7 @@ export async function apiRequest<T>(
       },
     });
 
-    return parseResponse<T>(response);
+    return parseApiResponse<T>(response);
   } catch {
     return {
       ok: false,

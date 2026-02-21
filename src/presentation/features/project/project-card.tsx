@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent } from "@/presentation/components/ui/card";
 import type { ProjectItem } from "@/presentation/types/project";
@@ -10,9 +11,11 @@ export function ProjectCard({ item }: { item: ProjectItem }) {
           {item.thumbnail?.emoji ? (
             <span className="text-2xl leading-none">{item.thumbnail.emoji}</span>
           ) : item.thumbnail?.url ? (
-            <img
+            <Image
               src={item.thumbnail.url}
-              alt=""
+              alt={`${item.name} thumbnail`}
+              width={32}
+              height={32}
               className="h-8 w-8 rounded object-contain"
             />
           ) : null}

@@ -8,7 +8,9 @@ export const integrationConfigKeys = {
   notionBlogDataSourceId: configKey("notion.blog.data_source_id"),
   notionResumeDataSourceId: configKey("notion.resume.data_source_id"),
   notionProjectDataSourceId: configKey("notion.project.data_source_id"),
+  notionMediaLinkDataSourceId: configKey("notion.media_link.data_source_id"),
   notionSchemaFieldMapping: configKey("notion.schema.field_mapping"),
+  notionDynamicModelsMigrated: configKey("notion.dynamic_models.migrated"),
 };
 
 export type IntegrationConfig = {

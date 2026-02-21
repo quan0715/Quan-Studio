@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
-    "typecheck": "sh -c 'rm -rf .next/dev/types && tsc --noEmit'",
+    "typecheck": "sh -c 'rm -rf .next/dev/types .next/types && tsc --noEmit'",
     "check:github-secrets": "bash scripts/check-github-secrets.sh",
     "prisma:generate": "prisma generate",
     "prisma:validate": "sh -c 'DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/postgres} prisma validate'",
@@ -21,6 +21,7 @@
     "setup:notion:resume-db": "bash scripts/setup-notion-resume-db.sh"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@prisma/client": "^6.16.2",
     "@radix-ui/react-tabs": "^1.1.13",
     "class-variance-authority": "^0.7.1",
@@ -46,6 +47,7 @@
     "eslint-config-next": "16.1.6",
     "husky": "^9.1.7",
     "jsdom": "^26.1.0",
+    "postcss": "^8.5.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

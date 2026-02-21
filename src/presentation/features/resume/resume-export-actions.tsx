@@ -3,7 +3,7 @@
 import { Button } from "@/presentation/components/ui/button";
 import { cn } from "@/presentation/lib/utils";
 
-export function openResumePdf(): void {
+function openResumePdf(): void {
   window.open("/resume-pdf?autoprint=1", "_blank", "noopener,noreferrer");
 }
 
@@ -20,4 +20,3 @@ export function ResumeExportButton({
     </Button>
   );
 }
-

@@ -10,18 +10,14 @@ import {
 } from "@/application/services/notion-model-mapper.service";
 import { integrationConfigKeys } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import {
-  getNotionModelBySchemaSource,
-  listNotionSchemaModels,
-  listNotionSchemaSources,
-  type NotionSchemaSource,
-} from "@/domain/notion-models/registry";
+import type { NotionModelDefinitionRepository } from "@/domain/notion-model-definition/notion-model-definition-repository";
+import { toSchemaMappingFromDefinition } from "@/application/services/notion-model-definition-adapter";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
 export type NotionSchemaFieldCheck = MapperNotionSchemaFieldCheck;
 
 export type NotionSchemaMappingReport = {
-  source: NotionSchemaSource;
+  source: string;
   dataSourceId: string;
   configured: boolean;
   ok: boolean;
@@ -36,7 +32,7 @@ export type NotionSchemaMappingOutput = {
 };
 
 type UpdateNotionSchemaMappingInput = {
-  source: NotionSchemaSource;
+  source: string;
   mappings: Record<string, string | null>;
 };
 
@@ -44,32 +40,28 @@ export class GetNotionSchemaMappingUseCase {
   constructor(
     private readonly notionClient: NotionClient,
     private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly notionModelDefinitionRepository: NotionModelDefinitionRepository,
     private readonly notionModelMapperService: NotionModelMapperService = new NotionModelMapperService()
   ) {}
 
   async execute(): Promise<NotionSchemaMappingOutput> {
-    const schemaModels = listNotionSchemaModels();
-    const configKeys = [
-      integrationConfigKeys.notionSchemaFieldMapping,
-      ...new Set(schemaModels.map((model) => model.dataSourceConfigKey)),
-    ];
-    const configs = await this.integrationConfigRepository.findByKeys(configKeys);
-    const map = new Map(configs.map((config) => [config.key, config.value.trim()]));
-
-    const storedMapping = parseStoredNotionSchemaFieldMapping(
-      map.get(integrationConfigKeys.notionSchemaFieldMapping) ?? ""
+    const schemaModels = await this.notionModelDefinitionRepository.listActive();
+    const stored = await this.integrationConfigRepository.findByKey(
+      integrationConfigKeys.notionSchemaFieldMapping
     );
+    const storedMapping = parseStoredNotionSchemaFieldMapping(stored?.value ?? "");
 
     const reports = await Promise.all(
-      schemaModels.map((model) =>
-        this.inspect({
+      schemaModels.map(async (model) => {
+        const schema = toSchemaMappingFromDefinition(model);
+        return this.inspect({
           source: model.schemaSource,
-          dataSourceId: map.get(model.dataSourceConfigKey) ?? "",
-          expectations: model.schemaMapping.expectations,
-          builtinChecks: model.schemaMapping.builtinChecks ?? [],
+          dataSourceId: model.dataSourceId ?? "",
+          expectations: schema.expectations,
+          builtinChecks: schema.builtinChecks,
           explicitMappings: storedMapping.sources[model.schemaSource] ?? {},
-        })
-      )
+        });
+      })
     );
 
     return {
@@ -79,10 +71,10 @@ export class GetNotionSchemaMappingUseCase {
   }
 
   private async inspect(input: {
-    source: NotionSchemaSource;
+    source: string;
     dataSourceId: string;
-    expectations: NonNullable<ReturnType<typeof listNotionSchemaModels>[number]["schemaMapping"]>["expectations"];
-    builtinChecks: NonNullable<ReturnType<typeof listNotionSchemaModels>[number]["schemaMapping"]>["builtinChecks"];
+    expectations: ReturnType<typeof toSchemaMappingFromDefinition>["expectations"];
+    builtinChecks: ReturnType<typeof toSchemaMappingFromDefinition>["builtinChecks"];
     explicitMappings: Record<string, string>;
   }): Promise<NotionSchemaMappingReport> {
     const normalizedDataSourceId = input.dataSourceId.trim();
@@ -107,7 +99,7 @@ export class GetNotionSchemaMappingUseCase {
       const properties = toDataSourceProperties(dataSource.properties);
       const evaluation = this.notionModelMapperService.evaluateSchema({
         expectations: input.expectations,
-        builtinChecks: input.builtinChecks ?? [],
+        builtinChecks: input.builtinChecks,
         properties,
         explicitMappings: input.explicitMappings,
       });
@@ -138,18 +130,18 @@ export class GetNotionSchemaMappingUseCase {
 }
 
 export class UpdateNotionSchemaMappingUseCase {
-  constructor(private readonly integrationConfigRepository: IntegrationConfigRepository) {}
+  constructor(
+    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly notionModelDefinitionRepository: NotionModelDefinitionRepository
+  ) {}
 
   async execute(input: UpdateNotionSchemaMappingInput): Promise<void> {
-    const descriptor = getNotionModelBySchemaSource(input.source);
+    const descriptor = await this.notionModelDefinitionRepository.findBySchemaSource(input.source);
     if (!descriptor) {
-      const allowed = listNotionSchemaSources().join(", ");
-      throw new AppError("VALIDATION_ERROR", `source must be one of: ${allowed}`);
+      throw new AppError("VALIDATION_ERROR", `source not found: ${input.source}`);
     }
 
-    const allowedAppFields = new Set(
-      descriptor.schemaMapping.expectations.map((item) => item.appField)
-    );
+    const allowedAppFields = new Set(descriptor.fields.map((item) => item.appField));
 
     const stored = await this.integrationConfigRepository.findByKey(
       integrationConfigKeys.notionSchemaFieldMapping

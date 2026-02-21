@@ -4,4 +4,5 @@ export const env = {
   notionEnvDatabaseId: process.env.NOTION_ENV_DATABASE_ID ?? process.env.NOTION_ENV_PAGE_ID ?? "",
   notionSourcePageId: process.env.NOTION_SOURCE_PAGE_ID ?? "",
   notionWebhookSharedSecret: process.env.NOTION_WEBHOOK_SHARED_SECRET ?? "",
+  notionPublicReadMode: process.env.NOTION_PUBLIC_READ_MODE ?? "postgres",
 };

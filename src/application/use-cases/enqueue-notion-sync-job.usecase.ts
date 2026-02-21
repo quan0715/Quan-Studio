@@ -1,4 +1,5 @@
 import { AppError } from "@/application/errors";
+import { NotionSyncStatusService } from "@/application/services/notion-sync-status.service";
 import type { NotionSyncJobRepository } from "@/domain/notion-sync/notion-sync-job-repository";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
 
@@ -12,7 +13,10 @@ type EnqueueNotionSyncJobInput = {
 export class EnqueueNotionSyncJobUseCase {
   constructor(
     private readonly repository: NotionSyncJobRepository,
-    private readonly notionClient: NotionClient
+    notionClient: NotionClient,
+    private readonly notionSyncStatusService: NotionSyncStatusService = new NotionSyncStatusService(
+      notionClient
+    )
   ) {}
 
   async execute(input: EnqueueNotionSyncJobInput) {
@@ -31,19 +35,20 @@ export class EnqueueNotionSyncJobUseCase {
       dedupeKey: input.dedupeKey.trim(),
     });
 
-    await this.syncStatusSafely(normalizedPageId, "IDLE");
+    const modelId = extractModelId(input.payload);
+    await this.notionSyncStatusService.setStatus({
+      pageId: normalizedPageId,
+      status: "IDLE",
+      modelId,
+    });
     return job;
   }
+}
 
-  private async syncStatusSafely(pageId: string, status: "IDLE"): Promise<void> {
-    try {
-      await this.notionClient.updatePageSyncStatus(pageId, status);
-    } catch (error) {
-      console.warn("[notion-sync] failed to update Sync Status", {
-        pageId,
-        status,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+function extractModelId(payload: Record<string, unknown> | null): string | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
   }
+  const value = payload.modelId;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }

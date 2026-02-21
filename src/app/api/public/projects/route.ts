@@ -15,14 +15,9 @@ function parseLimit(url: string, fallback = 100): number {
 
 export async function GET(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
+    const container = getContainer();
     const limit = parseLimit(request.url, 100);
-    const result = await getContainer().queryNotionModelUseCase.execute("project", limit);
-    return jsonSuccess({
-      meta: {
-        generatedAt: result.meta.generatedAt,
-        dataSourceId: result.meta.dataSourceId,
-      },
-      items: result.projected ?? [],
-    });
+    const result = await container.queryNotionModelUseCase.execute("project", limit);
+    return jsonSuccess(result);
   });
 }

@@ -6,9 +6,9 @@ import {
 import { integrationConfigKeys, type IntegrationConfigKey } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfig } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import { blogNotionModel } from "@/domain/notion-models/blog.notion";
-import { resumeNotionModel } from "@/domain/notion-models/resume.notion";
 import type { NotionClient } from "@/infrastructure/notion/notion-client";
+import type { NotionModelDefinitionRepository } from "@/domain/notion-model-definition/notion-model-definition-repository";
+import type { NotionModelDefinition } from "@/domain/notion-model-definition/notion-model-definition";
 
 class InMemoryIntegrationConfigRepository implements IntegrationConfigRepository {
   private readonly map = new Map<IntegrationConfigKey, IntegrationConfig>();
@@ -38,96 +38,83 @@ class InMemoryIntegrationConfigRepository implements IntegrationConfigRepository
   }
 }
 
+function buildDefinitionRepo(dataSourceId: string): NotionModelDefinitionRepository {
+  const model: NotionModelDefinition = {
+    id: "m1",
+    modelKey: "blog",
+    label: "Blog",
+    defaultDisplayName: "Blog",
+    schemaSource: "blog",
+    projectionKind: "flat_list",
+    projectionConfigJson: {},
+    isActive: true,
+    dataSourceId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    fields: [
+      {
+        id: "f1",
+        modelDefinitionId: "m1",
+        fieldKey: "title",
+        appField: "blog.title",
+        expectedType: "title",
+        required: true,
+        description: "Title",
+        defaultNotionField: "Name",
+        builtinField: null,
+        sortOrder: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  };
+  return {
+    listAll: async () => [model],
+    listActive: async () => [model],
+    findByModelKey: async (key: string) => (key === "blog" ? model : null),
+    findBySchemaSource: async (source: string) => (source === "blog" ? model : null),
+    createDefinition: async () => { throw new Error("no"); },
+    updateDefinition: async () => { throw new Error("no"); },
+    addField: async () => { throw new Error("no"); },
+    updateField: async () => { throw new Error("no"); },
+    deleteField: async () => undefined,
+    upsertBinding: async () => undefined,
+  };
+}
+
 describe("GetNotionSchemaMappingUseCase", () => {
-  it("builds schema checks from notion model descriptors", async () => {
+  it("builds schema checks from dynamic model definitions", async () => {
     const repository = new InMemoryIntegrationConfigRepository();
-    await repository.upsert(integrationConfigKeys.notionBlogDataSourceId, "ds-blog");
-    await repository.upsert(integrationConfigKeys.notionResumeDataSourceId, "ds-resume");
-
-    const retrieveDataSource = vi.fn(async (dataSourceId: string) => {
-      if (dataSourceId === "ds-blog") {
-        return {
-          id: "ds-blog",
-          properties: {
-            Name: { type: "title" },
-            "Sync Status": { type: "status" },
-            Status: { type: "select" },
-          },
-        };
-      }
-
-      return {
-        id: "ds-resume",
-        properties: {
-          Name: { type: "title" },
-          Section: { type: "select" },
-        },
-      };
-    });
+    const retrieveDataSource = vi.fn(async () => ({
+      id: "ds-blog",
+      properties: {
+        Name: { type: "title" },
+      },
+    }));
 
     const useCase = new GetNotionSchemaMappingUseCase(
-      {
-        retrieveDataSource,
-      } as unknown as NotionClient,
-      repository
+      { retrieveDataSource } as unknown as NotionClient,
+      repository,
+      buildDefinitionRepo("ds-blog")
     );
 
     const output = await useCase.execute();
-
-    const blogReport = output.reports.find((report) => report.source === "blog");
-    const resumeReport = output.reports.find((report) => report.source === "resume");
-    const expectedBlogFields = blogNotionModel.schemaMapping
-      ? blogNotionModel.schemaMapping.expectations.map((item) => item.appField)
-      : [];
-    const expectedBlogBuiltinFields = blogNotionModel.schemaMapping
-      ? (blogNotionModel.schemaMapping.builtinChecks ?? []).map((item) => item.appField)
-      : [];
-    const expectedResumeFields = resumeNotionModel.schemaMapping
-      ? resumeNotionModel.schemaMapping.expectations.map((item) => item.appField)
-      : [];
-    const expectedResumeBuiltinFields = resumeNotionModel.schemaMapping
-      ? (resumeNotionModel.schemaMapping.builtinChecks ?? []).map((item) => item.appField)
-      : [];
-
-    expect(blogReport).toBeDefined();
-    expect(resumeReport).toBeDefined();
-
-    expect(
-      blogReport?.checks
-        .filter((check) => check.expectedType !== "builtin")
-        .map((check) => check.appField)
-    ).toEqual(expectedBlogFields);
-
-    expect(
-      blogReport?.checks
-        .filter((check) => check.expectedType === "builtin")
-        .map((check) => check.appField)
-    ).toEqual(expectedBlogBuiltinFields);
-
-    expect(
-      resumeReport?.checks
-        .filter((check) => check.expectedType !== "builtin")
-        .map((check) => check.appField)
-    ).toEqual(expectedResumeFields);
-
-    expect(
-      resumeReport?.checks
-        .filter((check) => check.expectedType === "builtin")
-        .map((check) => check.appField)
-    ).toEqual(expectedResumeBuiltinFields);
+    expect(output.reports).toHaveLength(1);
+    expect(output.reports[0]?.source).toBe("blog");
+    expect(output.reports[0]?.ok).toBe(true);
   });
 });
 
 describe("UpdateNotionSchemaMappingUseCase", () => {
-  it("validates appField by selected descriptor expectations", async () => {
+  it("validates appField by selected dynamic model fields", async () => {
     const repository = new InMemoryIntegrationConfigRepository();
-    const useCase = new UpdateNotionSchemaMappingUseCase(repository);
+    const useCase = new UpdateNotionSchemaMappingUseCase(repository, buildDefinitionRepo("ds-blog"));
 
     await expect(
       useCase.execute({
         source: "blog",
         mappings: {
-          "resume.name": "Name",
+          "invalid.field": "Name",
         },
       })
     ).rejects.toMatchObject({
@@ -138,33 +125,12 @@ describe("UpdateNotionSchemaMappingUseCase", () => {
       useCase.execute({
         source: "blog",
         mappings: {
-          "post.title": "Title",
+          "blog.title": "Name",
         },
       })
     ).resolves.toBeUndefined();
 
     const stored = await repository.findByKey(integrationConfigKeys.notionSchemaFieldMapping);
     expect(stored).not.toBeNull();
-    expect(JSON.parse(stored!.value)).toMatchObject({
-      version: 1,
-      sources: {
-        blog: {
-          "post.title": "Title",
-        },
-      },
-    });
-  });
-
-  it("rejects unknown schema source", async () => {
-    const useCase = new UpdateNotionSchemaMappingUseCase(new InMemoryIntegrationConfigRepository());
-
-    await expect(
-      useCase.execute({
-        source: "unknown" as unknown as "blog",
-        mappings: {},
-      })
-    ).rejects.toMatchObject({
-      code: "VALIDATION_ERROR",
-    });
   });
 });

@@ -41,6 +41,13 @@ export type NotionSyncStatusLabel = "IDLE" | "Processing" | "Success" | "Failed"
 
 export class NotionClient {
   private readonly baseUrl = "https://api.notion.com/v1";
+  private readonly timeoutMs: number;
+  private readonly maxRetries: number;
+
+  constructor(options?: { timeoutMs?: number; maxRetries?: number }) {
+    this.timeoutMs = options?.timeoutMs ?? 30_000;
+    this.maxRetries = options?.maxRetries ?? 2;
+  }
 
   async retrievePage(pageId: string): Promise<NotionPageResponse> {
     return this.request<NotionPageResponse>(`/pages/${encodeURIComponent(pageId)}`);
@@ -155,6 +162,42 @@ export class NotionClient {
     });
   }
 
+  async createDatabase(input: {
+    parentPageId: string;
+    title: string;
+    properties: Record<string, Record<string, unknown>>;
+  }): Promise<{ databaseId: string; dataSourceId: string }> {
+    const response = await this.request<NotionDatabaseResponse>("/databases", {
+      method: "POST",
+      body: {
+        parent: { type: "page_id", page_id: input.parentPageId },
+        title: [{ type: "text", text: { content: input.title } }],
+        initial_data_source: { properties: input.properties },
+      },
+    });
+
+    const dataSourceId = response.data_sources?.[0]?.id;
+    if (!dataSourceId) {
+      throw new AppError("NOTION_API_ERROR", "createDatabase response missing data_sources[0].id");
+    }
+
+    return { databaseId: response.id, dataSourceId };
+  }
+
+  async updateDataSourceProperties(
+    dataSourceId: string,
+    properties: Record<string, unknown>
+  ): Promise<void> {
+    if (!dataSourceId.trim()) {
+      throw new AppError("VALIDATION_ERROR", "data source id is not configured");
+    }
+
+    await this.request(`/data_sources/${encodeURIComponent(dataSourceId)}`, {
+      method: "PATCH",
+      body: { properties },
+    });
+  }
+
   async updatePageSyncStatus(pageId: string, status: NotionSyncStatusLabel): Promise<void> {
     try {
       await this.updatePageProperties(pageId, {
@@ -188,28 +231,62 @@ export class NotionClient {
       throw new AppError("NOTION_API_ERROR", "NOTION_API_TOKEN is not configured");
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: options?.method ?? "GET",
-      headers: {
-        Authorization: `Bearer ${env.notionApiToken}`,
-        "Notion-Version": env.notionApiVersion,
-        ...(options?.body ? { "Content-Type": "application/json" } : {}),
-      },
-      body: options?.body ? JSON.stringify(options.body) : undefined,
-      cache: "no-store",
-    });
+    let lastError: unknown;
 
-    if (!response.ok) {
-      const errorText = await safeReadResponseText(response);
-      const suffix = errorText ? `: ${errorText}` : "";
-      throw new AppError("NOTION_API_ERROR", `notion request failed with status ${response.status}${suffix}`);
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      try {
+        const response = await fetch(`${this.baseUrl}${path}`, {
+          method: options?.method ?? "GET",
+          headers: {
+            Authorization: `Bearer ${env.notionApiToken}`,
+            "Notion-Version": env.notionApiVersion,
+            ...(options?.body ? { "Content-Type": "application/json" } : {}),
+          },
+          body: options?.body ? JSON.stringify(options.body) : undefined,
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (response.ok) {
+          if (response.status === 204) {
+            return undefined as T;
+          }
+          return (await response.json()) as T;
+        }
+
+        const isRetryable = response.status === 429 || response.status >= 500;
+        if (!isRetryable || attempt === this.maxRetries) {
+          const errorText = await safeReadResponseText(response);
+          const suffix = errorText ? `: ${errorText}` : "";
+          throw new AppError("NOTION_API_ERROR", `notion request failed with status ${response.status}${suffix}`);
+        }
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get("Retry-After");
+          const waitMs = retryAfter ? Math.min(60_000, Number(retryAfter) * 1_000) : 1_000 * 2 ** attempt;
+          await delay(waitMs);
+        } else {
+          await delay(Math.min(60_000, 1_000 * 2 ** attempt));
+        }
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        lastError = error;
+        if (attempt === this.maxRetries) {
+          break;
+        }
+        await delay(Math.min(60_000, 1_000 * 2 ** attempt));
+      } finally {
+        clearTimeout(timer);
+      }
     }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    return (await response.json()) as T;
+    const message = lastError instanceof Error ? lastError.message : "unknown network error";
+    throw new AppError("NOTION_API_ERROR", `notion request failed after ${this.maxRetries + 1} attempts: ${message}`);
   }
 
   private async queryDataSourceById(
@@ -246,6 +323,10 @@ async function safeReadResponseText(response: Response): Promise<string> {
   } catch {
     return "";
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function isNotionBadRequestError(error: unknown): boolean {

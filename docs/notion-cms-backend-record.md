@@ -26,4 +26,7 @@ Updated at: 2026-02-13 09:51 UTC
 
 ## Local Env
 Set in `/Users/quan/quan-studio/docker/dev.env`:
-- `NOTION_DATA_SOURCE_ID=8f1988c6-9dff-4c79-bbb3-bd44bd45be02`
+- `NOTION_SOURCE_PAGE_ID=<source-page-id>`
+- Data source IDs are selected in Studio (`/studio/settings/notion`) and persisted to `notion_model_bindings`.
+- Explicit field overrides are persisted to `integration_configs` key:
+  - `notion.schema.field_mapping`

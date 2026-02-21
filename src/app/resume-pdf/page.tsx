@@ -2,7 +2,8 @@ import Image from "next/image";
 import { ResumePdfAutoPrint } from "@/presentation/features/resume/resume-pdf-autoprint";
 import { findGroup, findGroupInSections, findSection, normalizePeriod } from "@/presentation/lib/resume-helpers";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
-import type { ResumeResponse } from "@/presentation/types/resume";
+import { toResumeSections } from "@/presentation/lib/transform-resume-model-rows";
+import type { PublicModelQueryResponse, TypedFieldValue } from "@/presentation/types/notion-model-query";
 
 export default async function ResumePdfPage({
   searchParams,
@@ -11,7 +12,21 @@ export default async function ResumePdfPage({
 }) {
   const params = await searchParams;
   const shouldAutoPrint = params.autoprint === "1";
-  const response = await serverApiRequest<ResumeResponse>("/api/public/resume?limit=500");
+  const [response, mediaLinksResponse] = await Promise.all([
+    serverApiRequest<PublicModelQueryResponse>("/api/public/models/resume?limit=500"),
+    serverApiRequest<PublicModelQueryResponse>("/api/public/models/media-link?limit=100"),
+  ]);
+
+  const resumeLinks = mediaLinksResponse.ok
+    ? mediaLinksResponse.data.rows
+        .filter((row) => readBooleanBySuffix(row, "showOnResume"))
+        .map((row) => ({
+          label: readStringBySuffix(row, "label") ?? "",
+          url: readStringBySuffix(row, "url") ?? "",
+          platform: readStringBySuffix(row, "platform") ?? "",
+        }))
+    : [];
+
   if (!response.ok) {
     return (
       <main className="bg-neutral-100 p-6 print:bg-white print:p-0">
@@ -28,7 +43,7 @@ export default async function ResumePdfPage({
     );
   }
 
-  const sections = response.data.sections;
+  const sections = toResumeSections(response.data.rows);
   if (sections.length === 0) {
     return (
       <main className="bg-neutral-100 p-6 print:bg-white print:p-0">
@@ -72,7 +87,7 @@ export default async function ResumePdfPage({
       <style>{`
         @page {
           size: A4;
-          margin: 11mm;
+          margin: 0;
         }
 
         @media print {
@@ -85,7 +100,7 @@ export default async function ResumePdfPage({
       <ResumePdfAutoPrint enabled={shouldAutoPrint} />
 
       <article
-        className="mx-auto min-h-[297mm] w-[210mm] bg-white p-[11mm] text-black shadow-xl print:min-h-0 print:w-auto print:shadow-none"
+        className="mx-auto min-h-[297mm] w-[210mm] bg-white p-[11mm] text-black shadow-xl print:min-h-0 print:w-auto print:p-[11mm] print:shadow-none"
         style={{ fontFamily: "Helvetica Neue, Arial, Noto Sans TC, sans-serif" }}
       >
         <header className="border-b border-neutral-300 pb-4">
@@ -95,10 +110,20 @@ export default async function ResumePdfPage({
               <p className="mt-1 text-sm font-medium text-neutral-700">Designer & Developer</p>
             </div>
             <div className="space-y-1 text-right text-[11px] text-neutral-700">
-              <p>Email: hi@quan.studio</p>
-              <p>GitHub: github.com/quan</p>
-              <p>LinkedIn: linkedin.com/in/quan</p>
-              <p>Taiwan</p>
+              {resumeLinks.length > 0
+                ? resumeLinks.map((link) => (
+                    <p key={link.label}>
+                      {link.platform || link.label}: {link.url.replace(/^https?:\/\//, "")}
+                    </p>
+                  ))
+                : (
+                  <>
+                    <p>Email: hi@quan.studio</p>
+                    <p>GitHub: github.com/quan</p>
+                    <p>LinkedIn: linkedin.com/in/quan</p>
+                    <p>Taiwan</p>
+                  </>
+                )}
             </div>
           </div>
           <p className="mt-3 text-[12px] leading-5 text-neutral-800">{profileItem?.summary.text}</p>
@@ -111,7 +136,7 @@ export default async function ResumePdfPage({
             </h2>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {aboutSection?.tags.map((tag) => (
-                <span key={tag} className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] text-neutral-700">
+                <span key={tag} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-700">
                   {tag}
                 </span>
               ))}
@@ -124,11 +149,11 @@ export default async function ResumePdfPage({
             </h2>
             <div className="mt-2 grid grid-cols-2 gap-2">
               {educationItems.map((item) => (
-                <article key={item.key} className="rounded border border-neutral-200 p-2">
+                <article key={item.key}>
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
                     {item.media.logoUrl ? (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center p-0.5">
                         <Image
                           src={item.media.logoUrl}
                           alt={`${item.title} logo`}
@@ -168,7 +193,7 @@ export default async function ResumePdfPage({
               </h2>
               <div className="mt-2 space-y-2">
                 {awardItems.map((item) => (
-                  <article key={item.key} className="rounded border border-neutral-200 p-2">
+                  <article key={item.key}>
                     <div className="flex items-center gap-x-3">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
                       {item.period.label ? (
@@ -193,7 +218,7 @@ export default async function ResumePdfPage({
               </h2>
               <div className="mt-2 space-y-2">
                 {certificationItems.map((item) => (
-                  <article key={item.key} className="rounded border border-neutral-200 p-2">
+                  <article key={item.key}>
                     <div className="flex items-center gap-x-3">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
                       {item.period.label ? (
@@ -217,7 +242,7 @@ export default async function ResumePdfPage({
             </h2>
             <div className="mt-2 space-y-2.5">
               {experienceItems.map((item) => (
-                <article key={item.key} className="rounded border border-neutral-200 p-2.5">
+                <article key={item.key}>
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -229,7 +254,7 @@ export default async function ResumePdfPage({
                       <p className="mt-0.5 text-[11px] font-semibold text-neutral-800">{item.title}</p>
                     </div>
                     {item.media.logoUrl ? (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center p-0.5">
                         <Image
                           src={item.media.logoUrl}
                           alt={`${item.title} logo`}
@@ -251,4 +276,22 @@ export default async function ResumePdfPage({
       </article>
     </main>
   );
+}
+
+function readStringBySuffix(row: Record<string, TypedFieldValue>, suffix: string): string | null {
+  for (const [key, value] of Object.entries(row)) {
+    if (key.endsWith(`.${suffix}`) && typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function readBooleanBySuffix(row: Record<string, TypedFieldValue>, suffix: string): boolean {
+  for (const [key, value] of Object.entries(row)) {
+    if (key.endsWith(`.${suffix}`) && typeof value === "boolean") {
+      return value;
+    }
+  }
+  return false;
 }

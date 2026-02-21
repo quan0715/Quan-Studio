@@ -7,9 +7,10 @@ export const runtime = "nodejs";
 
 export async function PATCH(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
+    const container = getContainer();
     const payload = await parseStudioNotionModelSelectSourcePayload(request);
-    await getContainer().selectNotionModelSourceUseCase.execute(payload);
-    const settings = await getContainer().getNotionModelSettingsUseCase.execute();
+    await container.selectNotionModelSourceUseCase.execute(payload);
+    const settings = await container.getNotionModelSettingsUseCase.execute();
     return jsonSuccess(settings);
   });
 }

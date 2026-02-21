@@ -1,8 +1,10 @@
 import Image from "next/image";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/components/ui/card";
+import { toResumeSections } from "@/presentation/lib/transform-resume-model-rows";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
-import type { ResumeEntry, ResumeResponse } from "@/presentation/types/resume";
+import type { PublicModelQueryResponse } from "@/presentation/types/notion-model-query";
+import type { ResumeEntry } from "@/presentation/types/resume";
 
 function ResumeItemNode({
   item,
@@ -75,7 +77,7 @@ function ResumeItemNode({
 }
 
 export default async function ResumePage() {
-  const response = await serverApiRequest<ResumeResponse>("/api/public/resume?limit=500");
+  const response = await serverApiRequest<PublicModelQueryResponse>("/api/public/models/resume?limit=500");
 
   if (!response.ok) {
     return (
@@ -95,7 +97,7 @@ export default async function ResumePage() {
     );
   }
 
-  const sections = response.data.sections;
+  const sections = toResumeSections(response.data.rows);
 
   return (
     <section className="space-y-8">

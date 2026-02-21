@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
     return jsonSuccess({
       refreshed: true,
       pageId: result.pageId,
-      postId: result.postId,
+      entityId: result.entityId,
     });
   });
 }

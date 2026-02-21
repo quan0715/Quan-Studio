@@ -1,12 +1,4 @@
 import { AppError } from "@/application/errors";
-import {
-  getNotionModelById,
-  getNotionModelBySchemaSource,
-  listNotionModels,
-  listNotionSchemaSources,
-  type NotionModelId,
-  type NotionSchemaSource,
-} from "@/domain/notion-models/registry";
 import { isPlainObject } from "@/shared/utils/type-guards";
 
 type JsonObject = Record<string, unknown>;
@@ -28,14 +20,44 @@ type StudioLoginPayload = {
 };
 
 type StudioNotionSchemaMappingPayload = {
-  source: NotionSchemaSource;
+  source: string;
   mappings: Record<string, string | null>;
 };
 
 type StudioNotionModelSelectSourcePayload = {
-  template: NotionModelId;
+  template: string;
   dataSourceId: string;
 };
+
+type StudioCreateModelDefinitionPayload = {
+  modelKey: string;
+  label: string;
+  defaultDisplayName: string;
+  schemaSource?: string;
+  projectionKind?: "flat_list";
+  projectionConfigJson?: Record<string, unknown>;
+};
+
+type StudioUpdateModelDefinitionPayload = {
+  label?: string;
+  defaultDisplayName?: string;
+  schemaSource?: string;
+  projectionKind?: "flat_list";
+  projectionConfigJson?: Record<string, unknown>;
+  isActive?: boolean;
+};
+
+type StudioModelFieldPayload = {
+  fieldKey: string;
+  appField: string;
+  expectedType: string;
+  required?: boolean;
+  description?: string;
+  defaultNotionField?: string | null;
+  builtinField?: string | null;
+  sortOrder?: number;
+};
+
 
 export async function parseNotionWebhookButtonPayload(
   request: Request,
@@ -177,6 +199,138 @@ export async function parseStudioNotionModelSelectSourcePayload(
   };
 }
 
+export async function parseStudioProvisionPayload(
+  request: Request
+): Promise<{ modelId: string; displayName?: string }> {
+  const body = await parseJsonBody(request);
+
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+
+  const modelId = parseModelTemplate(body.modelId);
+  const displayName =
+    typeof body.displayName === "string" && body.displayName.trim().length > 0
+      ? body.displayName.trim()
+      : undefined;
+
+  return { modelId, displayName };
+}
+
+export async function parseStudioMigratePayload(
+  request: Request
+): Promise<{ modelId: string; allowDelete: boolean; fieldName?: string }> {
+  const body = await parseJsonBody(request);
+
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+
+  const modelId = parseModelTemplate(body.modelId);
+  const allowDelete = body.allowDelete === true;
+  const fieldName =
+    typeof body.fieldName === "string" && body.fieldName.trim().length > 0
+      ? body.fieldName.trim()
+      : undefined;
+
+  return { modelId, allowDelete, fieldName };
+}
+
+export async function parseStudioCreateModelDefinitionPayload(
+  request: Request
+): Promise<StudioCreateModelDefinitionPayload> {
+  const body = await parseJsonBody(request);
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+  return {
+    modelKey: readRequiredTrimmedString(body, "modelKey"),
+    label: readRequiredTrimmedString(body, "label"),
+    defaultDisplayName: readRequiredTrimmedString(body, "defaultDisplayName"),
+    schemaSource: readOptionalNullableTrimmedString(body, "schemaSource") ?? undefined,
+    projectionKind:
+      body.projectionKind === "flat_list" || body.projectionKind === undefined
+        ? body.projectionKind
+        : (() => {
+            throw new AppError("VALIDATION_ERROR", "projectionKind must be flat_list");
+          })(),
+    projectionConfigJson: isPlainObject(body.projectionConfigJson)
+      ? body.projectionConfigJson
+      : undefined,
+  };
+}
+
+export async function parseStudioUpdateModelDefinitionPayload(
+  request: Request
+): Promise<StudioUpdateModelDefinitionPayload> {
+  const body = await parseJsonBody(request);
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+  return {
+    ...(Object.prototype.hasOwnProperty.call(body, "label")
+      ? { label: readRequiredTrimmedString(body, "label") }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, "defaultDisplayName")
+      ? { defaultDisplayName: readRequiredTrimmedString(body, "defaultDisplayName") }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, "schemaSource")
+      ? { schemaSource: readRequiredTrimmedString(body, "schemaSource") }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, "projectionKind")
+      ? {
+          projectionKind:
+            body.projectionKind === "flat_list"
+              ? "flat_list"
+              : (() => {
+                  throw new AppError("VALIDATION_ERROR", "projectionKind must be flat_list");
+                })(),
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, "projectionConfigJson")
+      ? {
+          projectionConfigJson: isPlainObject(body.projectionConfigJson)
+            ? body.projectionConfigJson
+            : (() => {
+                throw new AppError("VALIDATION_ERROR", "projectionConfigJson must be object");
+              })(),
+        }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(body, "isActive")
+      ? { isActive: readRequiredBoolean(body, "isActive") }
+      : {}),
+  };
+}
+
+export async function parseStudioModelFieldPayload(
+  request: Request
+): Promise<StudioModelFieldPayload> {
+  const body = await parseJsonBody(request);
+  if (!isPlainObject(body)) {
+    throw new AppError("VALIDATION_ERROR", "request body must be an object");
+  }
+  return {
+    fieldKey: readRequiredTrimmedString(body, "fieldKey"),
+    appField: readRequiredTrimmedString(body, "appField"),
+    expectedType: readRequiredTrimmedString(body, "expectedType"),
+    required: Object.prototype.hasOwnProperty.call(body, "required")
+      ? readRequiredBoolean(body, "required")
+      : undefined,
+    description: Object.prototype.hasOwnProperty.call(body, "description")
+      ? readOptionalNullableTrimmedString(body, "description") ?? ""
+      : undefined,
+    defaultNotionField: Object.prototype.hasOwnProperty.call(body, "defaultNotionField")
+      ? readOptionalNullableTrimmedString(body, "defaultNotionField")
+      : undefined,
+    builtinField: Object.prototype.hasOwnProperty.call(body, "builtinField")
+      ? readOptionalNullableTrimmedString(body, "builtinField")
+      : undefined,
+    sortOrder: Object.prototype.hasOwnProperty.call(body, "sortOrder")
+      ? readRequiredInteger(body, "sortOrder")
+      : undefined,
+  };
+}
+
 async function parseJsonBody(request: Request): Promise<unknown> {
   try {
     return (await request.json()) as unknown;
@@ -262,32 +416,53 @@ function readRequiredTrimmedString(payload: JsonObject, key: string): string {
   return normalized;
 }
 
-function parseModelTemplate(value: unknown): NotionModelId {
+function readOptionalNullableTrimmedString(payload: JsonObject, key: string): string | null {
+  const value = payload[key];
+  if (value === undefined || value === null) {
+    return null;
+  }
+
   if (typeof value !== "string") {
-    throw new AppError("VALIDATION_ERROR", "template is required");
-  }
-
-  const descriptor = getNotionModelById(value);
-  if (!descriptor) {
-    const allowed = listNotionModels()
-      .map((item) => item.id)
-      .join(", ");
-    throw new AppError("VALIDATION_ERROR", `template must be one of: ${allowed}`);
-  }
-  return descriptor.id as NotionModelId;
-}
-
-function parseSchemaSource(value: unknown): NotionSchemaSource {
-  if (typeof value !== "string" || !value.trim()) {
-    throw new AppError("VALIDATION_ERROR", "source is required");
+    throw new AppError("VALIDATION_ERROR", `${key} must be a string or null`);
   }
 
   const normalized = value.trim();
-  const descriptor = getNotionModelBySchemaSource(normalized);
-  if (!descriptor) {
-    const allowed = listNotionSchemaSources().join(", ");
-    throw new AppError("VALIDATION_ERROR", `source must be one of: ${allowed}`);
+  return normalized || null;
+}
+
+
+function readRequiredBoolean(payload: JsonObject, key: string): boolean {
+  const value = payload[key];
+  if (typeof value !== "boolean") {
+    throw new AppError("VALIDATION_ERROR", `${key} must be a boolean`);
   }
 
-  return descriptor.schemaSource;
+  return value;
+}
+
+function readRequiredInteger(payload: JsonObject, key: string): number {
+  const value = payload[key];
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new AppError("VALIDATION_ERROR", `${key} must be an integer`);
+  }
+
+  return value;
+}
+
+function parseModelTemplate(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new AppError("VALIDATION_ERROR", "template is required");
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new AppError("VALIDATION_ERROR", "template is required");
+  }
+  return normalized;
+}
+
+function parseSchemaSource(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new AppError("VALIDATION_ERROR", "source is required");
+  }
+  return value.trim();
 }

@@ -6,6 +6,7 @@
 3. `/Users/quan/quan-studio/spec/BACKEND_SPEC.md`
 4. `/Users/quan/quan-studio/spec/INFRA_SPEC.md`
 5. `/Users/quan/quan-studio/spec/EDITOR_FORMAT_GUIDE.md`
+6. `/Users/quan/quan-studio/docs/notion-module-usage.md` (Notion 模組實作與設定流程)
 
 ## Spec 結構（建議閱讀順序）
 1. `MVP_SPEC.md`：整體目標與範圍。

@@ -3,6 +3,7 @@ export type ErrorCode =
   | "UNAUTHORIZED_WEBHOOK"
   | "POST_NOT_FOUND"
   | "SYNC_JOB_NOT_FOUND"
+  | "MEDIA_LINK_NOT_FOUND"
   | "NOTION_API_ERROR"
   | "INTERNAL_ERROR";
 
@@ -46,6 +47,7 @@ function isErrorLike(
     code === "UNAUTHORIZED_WEBHOOK" ||
     code === "POST_NOT_FOUND" ||
     code === "SYNC_JOB_NOT_FOUND" ||
+    code === "MEDIA_LINK_NOT_FOUND" ||
     code === "NOTION_API_ERROR" ||
     code === "INTERNAL_ERROR"
   );

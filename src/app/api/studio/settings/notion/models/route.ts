@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
-    const settings = await getContainer().getNotionModelSettingsUseCase.execute();
+    const container = getContainer();
+    const settings = await container.getNotionModelSettingsUseCase.execute();
     return jsonSuccess(settings);
   });
 }

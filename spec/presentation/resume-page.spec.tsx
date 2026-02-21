@@ -18,46 +18,26 @@ describe("ResumePage", () => {
       ok: true,
       data: {
         meta: {
+          modelKey: "resume",
           generatedAt: "2026-01-01T00:00:00.000Z",
           dataSourceId: "ds-resume",
+          schemaVersion: 1,
         },
-        sections: [
+        rows: [
           {
-            key: "experience",
-            title: "Experience",
-            order: 20,
-            tags: ["Backend"],
-            groups: [
-              {
-                key: "acme",
-                title: "Acme",
-                order: 1,
-                entries: [
-                  {
-                    key: "entry-1",
-                    title: "Platform Engineer",
-                    location: "Taipei, Taiwan",
-                    period: {
-                      label: "Jan 2024 - Present",
-                      start: "2024-01-01",
-                      end: null,
-                    },
-                    summary: {
-                      text: "Built systems",
-                      bullets: ["Built systems"],
-                    },
-                    tags: ["Backend"],
-                    media: {
-                      logoUrl: null,
-                    },
-                    sort: {
-                      itemOrder: 1,
-                      periodStart: "2024-01-01",
-                    },
-                  },
-                ],
-              },
-            ],
+            __pageId: "entry-1",
+            "resume.name": "Platform Engineer",
+            "resume.section": "Experience",
+            "resume.group": "Acme",
+            "resume.location": "Taipei, Taiwan",
+            "resume.summary": "Built systems",
+            "resume.date": { start: "2024-01-01", end: null },
+            "resume.tags": ["Backend"],
+            "resume.sectionOrder": 20,
+            "resume.groupOrder": 1,
+            "resume.itemOrder": 1,
+            "resume.visibility": "public",
+            "resume.logo": null,
           },
         ],
       },
@@ -77,10 +57,12 @@ describe("ResumePage", () => {
       ok: true,
       data: {
         meta: {
+          modelKey: "resume",
           generatedAt: "2026-01-01T00:00:00.000Z",
           dataSourceId: "ds-resume",
+          schemaVersion: 1,
         },
-        sections: [],
+        rows: [],
       },
     });
 

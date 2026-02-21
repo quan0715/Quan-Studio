@@ -7,16 +7,18 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
-    const result = await getContainer().getNotionSchemaMappingUseCase.execute();
+    const container = getContainer();
+    const result = await container.getNotionSchemaMappingUseCase.execute();
     return jsonSuccess(result);
   });
 }
 
 export async function PATCH(request: Request): Promise<Response> {
   return handleApiRequest(request, async () => {
+    const container = getContainer();
     const payload = await parseStudioNotionSchemaMappingPayload(request);
-    await getContainer().updateNotionSchemaMappingUseCase.execute(payload);
-    const result = await getContainer().getNotionSchemaMappingUseCase.execute();
+    await container.updateNotionSchemaMappingUseCase.execute(payload);
+    const result = await container.getNotionSchemaMappingUseCase.execute();
     return jsonSuccess(result);
   });
 }

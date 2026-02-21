@@ -25,6 +25,26 @@ enum NotionSyncTrigger {
   retry
 }
 
+enum NotionModelProjectionKind {
+  flat_list
+  resume_grouped
+}
+
+enum NotionModelFieldType {
+  title
+  rich_text
+  select
+  multi_select
+  status
+  number
+  date
+  checkbox
+  url
+  file
+  media
+  builtin
+}
+
 model Post {
   id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   title              String
@@ -79,3 +99,57 @@ model IntegrationConfig {
   @@index([key])
   @@map("integration_configs")
 }
+
+model NotionModelDefinition {
+  id                 String                   @id @default(cuid())
+  modelKey           String                   @unique @map("model_key")
+  label              String
+  defaultDisplayName String                   @map("default_display_name")
+  schemaSource       String                   @unique @map("schema_source")
+  projectionKind     NotionModelProjectionKind @default(flat_list) @map("projection_kind")
+  projectionConfigJson Json                   @default("{}") @map("projection_config_json")
+  isActive           Boolean                  @default(true) @map("is_active")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+
+  fields             NotionModelField[]
+  binding            NotionModelBinding?
+
+  @@index([isActive])
+  @@map("notion_model_definitions")
+}
+
+model NotionModelField {
+  id                String              @id @default(cuid())
+  modelDefinitionId String              @map("model_definition_id")
+  fieldKey          String              @map("field_key")
+  appField          String              @unique @map("app_field")
+  expectedType      NotionModelFieldType @map("expected_type")
+  required          Boolean             @default(false)
+  description       String
+  defaultNotionField String?            @map("default_notion_field")
+  builtinField      String?             @map("builtin_field")
+  sortOrder         Int                 @default(0) @map("sort_order")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  modelDefinition   NotionModelDefinition @relation(fields: [modelDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([modelDefinitionId, fieldKey])
+  @@index([modelDefinitionId, sortOrder])
+  @@map("notion_model_fields")
+}
+
+model NotionModelBinding {
+  id                String               @id @default(cuid())
+  modelDefinitionId String               @unique @map("model_definition_id")
+  dataSourceId      String               @map("data_source_id")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  modelDefinition   NotionModelDefinition @relation(fields: [modelDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([dataSourceId])
+  @@map("notion_model_bindings")
+}
+

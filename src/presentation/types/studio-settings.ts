@@ -1,5 +1,40 @@
 export type NotionModelTemplate = string;
 
+export type NotionProjectionDto = {
+  kind: "flat_list";
+  config: Record<string, unknown>;
+};
+
+export type NotionModelFieldDto = {
+  fieldKey: string;
+  appField: string;
+  expectedType: string;
+  required: boolean;
+  description: string;
+  defaultNotionField: string | null;
+  builtinField: string | null;
+  sortOrder: number;
+};
+
+export type NotionModelDefinitionDto = {
+  modelKey: string;
+  label: string;
+  defaultDisplayName: string;
+  schemaSource: string;
+  projectionKind: "flat_list";
+  projectionConfigJson: Record<string, unknown>;
+  isActive: boolean;
+  dataSourceId: string | null;
+  fields: NotionModelFieldDto[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NotionModelDefinitionListDto = {
+  generatedAt: string;
+  models: NotionModelDefinitionDto[];
+};
+
 export type NotionModelTemplateInfoDto = {
   id: NotionModelTemplate;
   label: string;
@@ -64,4 +99,22 @@ export type NotionSchemaMappingReportDto = {
 export type NotionSchemaMappingResultDto = {
   generatedAt: string;
   reports: NotionSchemaMappingReportDto[];
+};
+
+export type ProvisionResultDto = {
+  databaseId: string;
+  dataSourceId: string;
+  displayName: string;
+};
+
+export type SchemaDiffActionDto =
+  | { kind: "add"; fieldName: string; fieldType: string }
+  | { kind: "rename"; fromName: string; toName: string }
+  | { kind: "delete"; fieldName: string };
+
+export type MigrateResultDto = {
+  dataSourceId: string;
+  actions: SchemaDiffActionDto[];
+  applied: SchemaDiffActionDto[];
+  skipped: SchemaDiffActionDto[];
 };

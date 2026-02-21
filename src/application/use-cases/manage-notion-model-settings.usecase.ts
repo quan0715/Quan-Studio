@@ -1,13 +1,12 @@
 import { AppError } from "@/application/errors";
+import { normalizeModelKey } from "@/application/services/notion-model-definition-validator";
 import type {
   ListNotionSourcePageDataSourcesService,
   SourcePageDataSourceCandidate,
 } from "@/application/services/list-notion-source-page-data-sources.service";
-import type { IntegrationConfigKey } from "@/domain/integration-config/integration-config";
-import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import { getNotionModelById, listNotionModels, type NotionModelId } from "@/domain/notion-models/registry";
+import type { NotionModelDefinitionRepository } from "@/domain/notion-model-definition/notion-model-definition-repository";
 
-export type NotionModelTemplate = NotionModelId;
+export type NotionModelTemplate = string;
 
 export type RegisteredModelOutput = {
   template: NotionModelTemplate;
@@ -42,35 +41,29 @@ type SelectNotionModelSourceInput = {
 export class GetNotionModelSettingsUseCase {
   constructor(
     private readonly sourcePageDataSourcesService: ListNotionSourcePageDataSourcesService,
-    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly notionModelDefinitionRepository: NotionModelDefinitionRepository,
     private readonly sourcePageId: string
   ) {}
 
   async execute(): Promise<NotionModelSettingsOutput> {
     const sourcePageId = this.resolveSourcePageId();
-    const availableTemplates = listNotionModels();
-    const [configs, candidates] = await Promise.all([
-      this.integrationConfigRepository.findByKeys([
-        ...new Set(availableTemplates.map((item) => item.dataSourceConfigKey)),
-      ]),
+    const [models, candidates] = await Promise.all([
+      this.notionModelDefinitionRepository.listActive(),
       this.sourcePageDataSourcesService.execute(sourcePageId),
     ]);
-
-    const configMap = new Map(configs.map((item) => [item.key, item.value.trim()]));
-    const models = availableTemplates.map((item) => ({
-      template: item.id as NotionModelTemplate,
-      displayName: item.defaultDisplayName,
-      configuredDataSourceId: resolveConfiguredDataSourceId(item.dataSourceConfigKey, configMap),
-    }));
 
     return {
       sourcePage: {
         id: sourcePageId,
         configured: true,
       },
-      models,
-      availableTemplates: availableTemplates.map((item) => ({
-        id: item.id as NotionModelTemplate,
+      models: models.map((item) => ({
+        template: item.modelKey,
+        displayName: item.defaultDisplayName,
+        configuredDataSourceId: item.dataSourceId,
+      })),
+      availableTemplates: models.map((item) => ({
+        id: item.modelKey,
         label: item.label,
         defaultDisplayName: item.defaultDisplayName,
         schemaSource: item.schemaSource,
@@ -95,7 +88,7 @@ export class GetNotionModelSettingsUseCase {
 export class SelectNotionModelSourceUseCase {
   constructor(
     private readonly sourcePageDataSourcesService: ListNotionSourcePageDataSourcesService,
-    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly notionModelDefinitionRepository: NotionModelDefinitionRepository,
     private readonly sourcePageId: string
   ) {}
 
@@ -105,7 +98,8 @@ export class SelectNotionModelSourceUseCase {
       throw new AppError("VALIDATION_ERROR", "dataSourceId is required");
     }
 
-    const descriptor = getNotionModelById(input.template);
+    const modelKey = normalizeModelKey(input.template);
+    const descriptor = await this.notionModelDefinitionRepository.findByModelKey(modelKey);
     if (!descriptor) {
       throw new AppError("VALIDATION_ERROR", `unknown template: ${input.template}`);
     }
@@ -120,7 +114,7 @@ export class SelectNotionModelSourceUseCase {
       );
     }
 
-    await this.integrationConfigRepository.upsert(descriptor.dataSourceConfigKey, dataSourceId);
+    await this.notionModelDefinitionRepository.upsertBinding(descriptor.modelKey, dataSourceId);
   }
 
   private resolveSourcePageId(): string {
@@ -132,10 +126,3 @@ export class SelectNotionModelSourceUseCase {
   }
 }
 
-function resolveConfiguredDataSourceId(
-  configKey: IntegrationConfigKey,
-  configMap: Map<IntegrationConfigKey, string>
-): string | null {
-  const value = configMap.get(configKey);
-  return value && value.length > 0 ? value : null;
-}

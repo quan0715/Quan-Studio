@@ -68,8 +68,12 @@ Notion setup scripts:
 - `npm run setup:notion:resume-db` creates the Resume database
 
 Resume data source schema is fixed to:
-- `Name`, `Section`, `Group`, `Summary`, `Date`, `Tags`, `Visibility`
-- `Section Order`, `Group Order`, `Item Order`, `Logo`
+- `Name`, `Section`, `Group`, `Location`, `Summary`, `Date`, `Tags`, `Visibility`
+- `Section Order`, `Group Order`, `Item Order`
+- Notion built-in fields used by Resume mapping:
+  - `page.icon` -> `resume.logo`
+  - `page.created_time`
+  - `page.last_edited_time`
 - No legacy fallback fields are supported.
 - Data source IDs are managed in Studio Settings (`/studio/settings/notion`) and stored in DB.
 
@@ -176,6 +180,7 @@ npm run check:github-secrets
 
 Pages:
 - `/`
+- `/resume`
 - `/blog`
 - `/blog/[slug]`
 - `/studio`
@@ -187,6 +192,8 @@ APIs:
 - `GET /api/public/posts`
 - `GET /api/public/posts/[slug]`
 - `GET /api/public/resume`
+- `GET /api/public/projects`
+- `GET /api/public/models/[modelKey]`
 - `POST /api/studio/auth/login`
 - `POST /api/studio/auth/logout`
 - `GET /api/studio/posts`
@@ -196,12 +203,54 @@ APIs:
 - `PATCH /api/studio/settings/notion/models/select-source`
 - `GET /api/studio/settings/notion/schema-mapping`
 - `PATCH /api/studio/settings/notion/schema-mapping`
+- `GET /api/studio/settings/notion/model-definitions`
+- `POST /api/studio/settings/notion/model-definitions`
+- `PATCH /api/studio/settings/notion/model-definitions/[modelKey]`
+- `POST /api/studio/settings/notion/model-definitions/[modelKey]/fields`
+- `PATCH /api/studio/settings/notion/model-definitions/[modelKey]/fields/[fieldKey]`
+- `DELETE /api/studio/settings/notion/model-definitions/[modelKey]/fields/[fieldKey]`
+- `POST /api/studio/settings/notion/models/provision`
+- `POST /api/studio/settings/notion/models/migrate`
 - `GET /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs`
 - `POST /api/studio/sync-jobs/process-next`
 - `POST /api/studio/sync-jobs/enqueue-published`
 - `POST /api/studio/sync-jobs/[id]/retry`
 - `POST /api/integrations/notion/webhook/button`
+
+## Notion Module Usage (Current)
+
+Current Notion integration is **Studio DB-First** and runtime no longer reads static model registry files.
+
+Model source of truth:
+- DB table `notion_model_definitions`
+- DB table `notion_model_fields`
+- DB table `notion_model_bindings`
+
+Runtime config sources:
+- Env:
+  - `NOTION_SOURCE_PAGE_ID`: source page for scanning candidate databases/data sources.
+- DB table `integration_configs`:
+  - `notion.schema.field_mapping` (explicit field override mapping)
+
+Studio settings flow:
+1. Create/edit models and fields in `/studio/settings/notion`.
+2. Scan `NOTION_SOURCE_PAGE_ID` for candidate `data_source_id`.
+3. Bind model to one `data_source_id`.
+4. Run schema mapping check and save explicit overrides when needed.
+
+App field rule:
+- `appField` must start with model prefix: `<modelKey>.<fieldName>` (for example `resume.location`).
+
+Public data contract:
+- Query model data from `GET /api/public/models/[modelKey]`.
+- Response shape is typed and consistent:
+  - `meta`: `modelKey`, `dataSourceId`, `generatedAt`, `schemaVersion`
+  - `rows`: array of mapped app fields
+- `GET /api/public/resume` and `GET /api/public/projects` are thin wrappers over the same model query use case.
+
+For implementation details, see:
+- `/Users/quan/quan-studio/docs/notion-module-usage.md`
 
 ## Current Architecture
 

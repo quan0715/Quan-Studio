@@ -10,6 +10,8 @@ export function statusByErrorCode(code: ErrorCode): number {
       return 404;
     case "SYNC_JOB_NOT_FOUND":
       return 404;
+    case "MEDIA_LINK_NOT_FOUND":
+      return 404;
     case "NOTION_API_ERROR":
       return 502;
     case "INTERNAL_ERROR":

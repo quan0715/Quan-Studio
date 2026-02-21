@@ -102,6 +102,79 @@ describe("NotionModelMapperService", () => {
     expect(mapped["post.createdTime"]).toBe("2026-01-01T00:00:00.000Z");
     expect(mapped["post.lastEditedTime"]).toBe("2026-01-02T00:00:00.000Z");
   });
+
+  it("treats file/media expected type as notion files and extracts values", () => {
+    const mapper = new NotionModelMapperService();
+    const evaluation = mapper.evaluateSchema({
+      expectations: [
+        {
+          appField: "blog.assetFiles",
+          notionField: "Assets",
+          expectedType: "file",
+          required: false,
+          description: "assets",
+        },
+        {
+          appField: "blog.mediaItems",
+          notionField: "Assets",
+          expectedType: "media",
+          required: false,
+          description: "media",
+        },
+      ],
+      builtinChecks: [],
+      properties: [{ name: "Assets", type: "files" }],
+      explicitMappings: {},
+    });
+
+    expect(evaluation.ok).toBe(true);
+    expect(evaluation.checks.every((item) => item.status === "ok")).toBe(true);
+
+    const mapped = mapper.mapPageFields({
+      expectations: [
+        {
+          appField: "blog.assetFiles",
+          notionField: "Assets",
+          expectedType: "file",
+          required: false,
+          description: "assets",
+        },
+        {
+          appField: "blog.mediaItems",
+          notionField: "Assets",
+          expectedType: "media",
+          required: false,
+          description: "media",
+        },
+      ],
+      explicitMappings: {},
+      page: {
+        created_time: "2026-01-01T00:00:00.000Z",
+        last_edited_time: "2026-01-02T00:00:00.000Z",
+        properties: {
+          Assets: {
+            type: "files",
+            files: [
+              {
+                type: "external",
+                name: "cover",
+                external: { url: "https://cdn.example.com/cover.png" },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(mapped["blog.assetFiles"]).toEqual(["https://cdn.example.com/cover.png"]);
+    expect(mapped["blog.mediaItems"]).toEqual([
+      {
+        name: "cover",
+        type: "external",
+        url: "https://cdn.example.com/cover.png",
+      },
+    ]);
+  });
 });
 
 describe("parseStoredNotionSchemaFieldMapping", () => {
@@ -131,4 +204,3 @@ describe("parseStoredNotionSchemaFieldMapping", () => {
     });
   });
 });
-

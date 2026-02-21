@@ -250,7 +250,7 @@ function evaluateExpectations(
         };
       }
 
-      const typeMatched = expectation.expectedType === selected.type;
+      const typeMatched = isNotionTypeCompatible(expectation.expectedType, selected.type);
       return {
         appField: expectation.appField,
         description: expectation.description,
@@ -291,7 +291,7 @@ function evaluateExpectations(
       };
     }
 
-    const typeMatched = expectation.expectedType === matched.type;
+    const typeMatched = isNotionTypeCompatible(expectation.expectedType, matched.type);
     return {
       appField: expectation.appField,
       description: expectation.description,
@@ -339,6 +339,10 @@ function extractPropertyValueByExpectedType(
       return typeof property.checkbox === "boolean" ? property.checkbox : null;
     case "url":
       return optionalText(typeof property.url === "string" ? property.url : null);
+    case "file":
+      return extractFilesValue(property.files).map((item) => item.url).filter((url): url is string => Boolean(url));
+    case "media":
+      return extractFilesValue(property.files);
     case "email":
       return optionalText(typeof property.email === "string" ? property.email : null);
     case "phone_number":
@@ -346,6 +350,18 @@ function extractPropertyValueByExpectedType(
     default:
       return null;
   }
+}
+
+function isNotionTypeCompatible(expectedType: string, actualType: string): boolean {
+  if (expectedType === actualType) {
+    return true;
+  }
+
+  if ((expectedType === "file" || expectedType === "media") && actualType === "files") {
+    return true;
+  }
+
+  return false;
 }
 
 function extractBuiltinFieldValue(page: NotionPageLike, builtinField: string): unknown {
@@ -419,6 +435,33 @@ function extractMultiSelectNames(value: unknown): string[] {
       return typeof name === "string" ? name.trim() : "";
     })
     .filter((name) => name.length > 0);
+}
+
+function extractFilesValue(
+  value: unknown
+): Array<{ name: string | null; type: "file" | "external" | null; url: string | null }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    if (!isPlainObject(item)) {
+      return { name: null, type: null, url: null };
+    }
+
+    const name = typeof item.name === "string" && item.name.trim().length > 0 ? item.name : null;
+    const type = item.type === "file" || item.type === "external" ? item.type : null;
+    let url: string | null = null;
+
+    if (type === "file" && isPlainObject(item.file) && typeof item.file.url === "string") {
+      url = item.file.url;
+    }
+    if (type === "external" && isPlainObject(item.external) && typeof item.external.url === "string") {
+      url = item.external.url;
+    }
+
+    return { name, type, url };
+  });
 }
 
 function asArray(value: unknown): unknown[] {

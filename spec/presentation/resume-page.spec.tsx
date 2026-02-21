@@ -36,6 +36,7 @@ describe("ResumePage", () => {
                   {
                     key: "entry-1",
                     title: "Platform Engineer",
+                    location: "Taipei, Taiwan",
                     period: {
                       label: "Jan 2024 - Present",
                       start: "2024-01-01",
@@ -68,6 +69,7 @@ describe("ResumePage", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
     expect(screen.getByText("Jan 2024 - Present")).toBeInTheDocument();
+    expect(screen.getByText("Taipei, Taiwan")).toBeInTheDocument();
   });
 
   it("renders empty state when sections are empty", async () => {
@@ -86,4 +88,3 @@ describe("ResumePage", () => {
     expect(screen.getByText("Resume Data Source 目前沒有可顯示的資料。")).toBeInTheDocument();
   });
 });
-

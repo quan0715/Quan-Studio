@@ -1,6 +1,7 @@
 export type ResumeEntry = {
   key: string;
   title: string;
+  location: string | null;
   period: {
     label: string | null;
     start: string | null;
@@ -42,4 +43,3 @@ export type ResumeResponse = {
   };
   sections: ResumeSection[];
 };
-

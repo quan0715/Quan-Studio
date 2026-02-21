@@ -29,6 +29,13 @@ const resumeSchemaExpectations: NotionSchemaFieldExpectation[] = [
     description: "群組名稱",
   },
   {
+    appField: "resume.location",
+    notionField: "Location",
+    expectedType: "rich_text",
+    required: false,
+    description: "地點",
+  },
+  {
     appField: "resume.summary",
     notionField: "Summary",
     expectedType: "rich_text",
@@ -95,6 +102,7 @@ const resumeProjection: NotionResumeGroupedProjectionDescriptor = {
     sectionTitle: "resume.section",
     groupTitle: "resume.group",
     entryTitle: "resume.name",
+    location: "resume.location",
     summaryText: "resume.summary",
     periodDateRange: "resume.date",
     tags: "resume.tags",

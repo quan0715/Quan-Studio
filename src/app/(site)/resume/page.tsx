@@ -22,6 +22,8 @@ function ResumeItemNode({
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {item.period.label ? <p className="font-medium text-primary">{item.period.label}</p> : null}
+        {item.period.label && item.location ? <span aria-hidden="true">•</span> : null}
+        {item.location ? <p>{item.location}</p> : null}
       </div>
 
       <h4 className="mt-1 text-base font-semibold">{item.title}</h4>

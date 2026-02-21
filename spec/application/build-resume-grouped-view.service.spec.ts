@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import { BuildResumeGroupedViewService } from "@/application/services/build-resume-grouped-view.service";
 import { resumeNotionModel } from "@/domain/notion-models/resume.notion";
 
-function getResumeModel() {
+function getResumeProjectionInput() {
   if (!resumeNotionModel.schemaMapping || !resumeNotionModel.projection) {
     throw new Error("resume notion model is missing schema config");
   }
 
   return {
-    ...resumeNotionModel,
-    schemaSource: resumeNotionModel.schemaSource ?? "resume",
     schemaMapping: resumeNotionModel.schemaMapping,
     projection: resumeNotionModel.projection,
   };
@@ -18,14 +16,16 @@ function getResumeModel() {
 describe("BuildResumeGroupedViewService", () => {
   it("applies explicit mapping, filters private entries and sorts sections/groups/items", () => {
     const service = new BuildResumeGroupedViewService();
-    const model = getResumeModel();
+    const { schemaMapping, projection } = getResumeProjectionInput();
 
     const sections = service.build({
-      model,
+      schemaMapping,
+      projection,
       explicitMappings: {
         "resume.name": "Entry Name",
         "resume.section": "Entry Section",
         "resume.group": "Entry Group",
+        "resume.location": "Entry Location",
         "resume.summary": "Entry Summary",
         "resume.date": "Entry Date",
         "resume.tags": "Entry Tags",
@@ -50,6 +50,7 @@ describe("BuildResumeGroupedViewService", () => {
             "Entry Name": { type: "title", title: [{ plain_text: "Platform Engineer" }] },
             "Entry Section": { type: "select", select: { name: "Work Experience" } },
             "Entry Group": { type: "rich_text", rich_text: [{ plain_text: "Acme" }] },
+            "Entry Location": { type: "rich_text", rich_text: [{ plain_text: "Taipei, Taiwan" }] },
             "Entry Summary": {
               type: "rich_text",
               rich_text: [{ plain_text: "Built systems\n- Scaled API" }],
@@ -77,6 +78,7 @@ describe("BuildResumeGroupedViewService", () => {
             "Entry Name": { type: "title", title: [{ plain_text: "Senior Engineer" }] },
             "Entry Section": { type: "select", select: { name: "Work Experience" } },
             "Entry Group": { type: "rich_text", rich_text: [{ plain_text: "Acme" }] },
+            "Entry Location": { type: "rich_text", rich_text: [{ plain_text: "Remote" }] },
             "Entry Summary": {
               type: "rich_text",
               rich_text: [{ plain_text: "Led migration" }],
@@ -99,6 +101,7 @@ describe("BuildResumeGroupedViewService", () => {
             "Entry Name": { type: "title", title: [{ plain_text: "Hidden Entry" }] },
             "Entry Section": { type: "select", select: { name: "Work Experience" } },
             "Entry Group": { type: "rich_text", rich_text: [{ plain_text: "Acme" }] },
+            "Entry Location": { type: "rich_text", rich_text: [{ plain_text: "Secret Base" }] },
             "Entry Summary": { type: "rich_text", rich_text: [{ plain_text: "Should hide" }] },
             "Entry Date": { type: "date", date: { start: "2023-01-01", end: null } },
             "Entry Tags": { type: "multi_select", multi_select: [{ name: "Secret" }] },
@@ -123,6 +126,7 @@ describe("BuildResumeGroupedViewService", () => {
             "Entry Name": { type: "title", title: [{ plain_text: "Computer Science" }] },
             "Entry Section": { type: "select", select: { name: "Education" } },
             "Entry Group": { type: "rich_text", rich_text: [{ plain_text: "University" }] },
+            "Entry Location": { type: "rich_text", rich_text: [{ plain_text: "Tainan, Taiwan" }] },
             "Entry Summary": { type: "rich_text", rich_text: [{ plain_text: "Bachelor degree" }] },
             "Entry Date": { type: "date", date: { start: "2020-09-01", end: "2024-06-30" } },
             "Entry Tags": { type: "multi_select", multi_select: [{ name: "CS" }] },
@@ -147,6 +151,7 @@ describe("BuildResumeGroupedViewService", () => {
         label: "Jan 2024 - Present",
         start: "2024-01-01",
       },
+      location: "Taipei, Taiwan",
       summary: {
         text: "Built systems\n- Scaled API",
         bullets: ["Built systems", "Scaled API"],

@@ -6,6 +6,7 @@ import {
   toMappedString,
   toMappedStringArray,
 } from "@/application/services/notion-model-mapper.service";
+import type { ProjectionBuilder, ProjectionBuildInput } from "@/application/services/projection-builder-registry";
 import { isPlainObject } from "@/shared/utils/type-guards";
 import type {
   NotionModelSchemaMappingDescriptor,
@@ -15,6 +16,7 @@ import type {
 export type ResumeEntryView = {
   key: string;
   title: string;
+  location: string | null;
   period: {
     label: string | null;
     start: string | null;
@@ -78,16 +80,17 @@ type ResumeModelWithProjection = {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export class BuildResumeGroupedViewService {
+export class BuildResumeGroupedViewService implements ProjectionBuilder {
   constructor(private readonly notionModelMapperService: NotionModelMapperService = new NotionModelMapperService()) {}
 
-  build(input: {
-    pages: Array<Record<string, unknown>>;
-    model: ResumeModelWithProjection;
-    explicitMappings: Record<string, string>;
-  }): ResumeSectionView[] {
+  build(input: ProjectionBuildInput): ResumeSectionView[] {
+    const model: ResumeModelWithProjection = {
+      schemaSource: "",
+      schemaMapping: input.schemaMapping,
+      projection: input.projection as NotionResumeGroupedProjectionDescriptor,
+    };
     const rows = input.pages
-      .map((page) => this.toRow(page as NotionPageRecord, input.model, input.explicitMappings))
+      .map((page) => this.toRow(page as NotionPageRecord, model, input.explicitMappings))
       .filter((row): row is ResumeMappedRow => row !== null)
       .sort(compareRows);
 
@@ -131,6 +134,7 @@ export class BuildResumeGroupedViewService {
     const sectionTitle = toMappedString(mappedFields[fields.sectionTitle]) ?? projection.defaults.sectionTitle;
     const groupTitle = toMappedString(mappedFields[fields.groupTitle]) ?? projection.defaults.groupTitle;
     const entryTitle = toMappedString(mappedFields[fields.entryTitle]) ?? projection.defaults.entryTitle;
+    const location = toMappedString(mappedFields[fields.location]);
     const summaryText = toMappedString(mappedFields[fields.summaryText]);
     const tags = toMappedStringArray(mappedFields[fields.tags]);
     const dateRange = toMappedDateRange(mappedFields[fields.periodDateRange]);
@@ -152,6 +156,7 @@ export class BuildResumeGroupedViewService {
       entry: {
         key: pageId,
         title: entryTitle,
+        location,
         period: {
           label: formatPeriodLabel(dateRange.start, dateRange.end, projection.period.presentLabel),
           start: dateRange.start,

@@ -29,6 +29,7 @@ export type NotionResumeGroupedProjectionDescriptor = {
     sectionTitle: string;
     groupTitle: string;
     entryTitle: string;
+    location: string;
     summaryText: string;
     periodDateRange: string;
     tags: string;
@@ -53,7 +54,15 @@ export type NotionResumeGroupedProjectionDescriptor = {
   };
 };
 
-export type NotionModelProjectionDescriptor = NotionResumeGroupedProjectionDescriptor;
+export type NotionFlatListProjectionDescriptor = {
+  kind: "flat_list";
+  fields: Record<string, string>;
+  sortBy?: { field: string; direction: "asc" | "desc" }[];
+};
+
+export type NotionModelProjectionDescriptor =
+  | NotionResumeGroupedProjectionDescriptor
+  | NotionFlatListProjectionDescriptor;
 
 export type NotionModelDescriptor = {
   id: string;
@@ -142,64 +151,110 @@ export function defineNotionModel<T extends NotionModelDescriptor>(descriptor: T
     }
   }
 
-  if (descriptor.projection?.kind === "resume_grouped") {
-    const {
-      fields,
-      visibility,
-      defaults,
-      sectionOrderFallback,
-      period,
-    } = descriptor.projection;
-    const fieldValues = Object.values(fields);
+  if (descriptor.projection) {
+    validateProjection(descriptor.id, descriptor.projection, descriptor.schemaMapping);
+  }
 
-    for (const value of fieldValues) {
-      if (!value.trim()) {
-        throw new Error(`notion model ${descriptor.id} projection fields must be non-empty`);
-      }
-    }
+  return descriptor;
+}
 
-    if (!visibility.privateValue.trim()) {
-      throw new Error(`notion model ${descriptor.id} projection visibility.privateValue is required`);
-    }
-    if (!defaults.sectionTitle.trim() || !defaults.groupTitle.trim() || !defaults.entryTitle.trim()) {
-      throw new Error(`notion model ${descriptor.id} projection defaults titles are required`);
-    }
-    if (!Number.isFinite(defaults.maxOrder) || defaults.maxOrder < 0) {
-      throw new Error(`notion model ${descriptor.id} projection defaults.maxOrder must be a valid number`);
-    }
-    if (!period.presentLabel.trim()) {
-      throw new Error(`notion model ${descriptor.id} projection period.presentLabel is required`);
-    }
+function validateProjection(
+  modelId: string,
+  projection: NotionModelProjectionDescriptor,
+  schemaMapping: NotionModelSchemaMappingDescriptor | undefined
+): void {
+  switch (projection.kind) {
+    case "resume_grouped":
+      validateResumeGroupedProjection(modelId, projection, schemaMapping);
+      break;
+    case "flat_list":
+      validateFlatListProjection(modelId, projection, schemaMapping);
+      break;
+    default:
+      throw new Error(`notion model ${modelId} has unknown projection kind: ${(projection as { kind: string }).kind}`);
+  }
+}
 
-    for (const [key, order] of Object.entries(sectionOrderFallback)) {
-      if (!key.trim()) {
-        throw new Error(`notion model ${descriptor.id} projection sectionOrderFallback key is empty`);
-      }
-      if (!Number.isFinite(order)) {
+function validateProjectionFieldRefs(
+  modelId: string,
+  fieldValues: string[],
+  schemaMapping: NotionModelSchemaMappingDescriptor | undefined
+): void {
+  if (!schemaMapping) {
+    throw new Error(`notion model ${modelId} projection requires schemaMapping`);
+  }
+
+  const allowedAppFields = new Set([
+    ...schemaMapping.expectations.map((field) => field.appField),
+    ...(schemaMapping.builtinChecks ?? []).map((field) => field.appField),
+  ]);
+
+  for (const value of fieldValues) {
+    if (!value.trim()) {
+      throw new Error(`notion model ${modelId} projection fields must be non-empty`);
+    }
+  }
+
+  for (const appField of fieldValues) {
+    if (!allowedAppFields.has(appField)) {
+      throw new Error(
+        `notion model ${modelId} projection field references unknown appField: ${appField}`
+      );
+    }
+  }
+}
+
+function validateResumeGroupedProjection(
+  modelId: string,
+  projection: NotionResumeGroupedProjectionDescriptor,
+  schemaMapping: NotionModelSchemaMappingDescriptor | undefined
+): void {
+  const { fields, visibility, defaults, sectionOrderFallback, period } = projection;
+  const fieldValues = Object.values(fields);
+
+  validateProjectionFieldRefs(modelId, fieldValues, schemaMapping);
+
+  if (!visibility.privateValue.trim()) {
+    throw new Error(`notion model ${modelId} projection visibility.privateValue is required`);
+  }
+  if (!defaults.sectionTitle.trim() || !defaults.groupTitle.trim() || !defaults.entryTitle.trim()) {
+    throw new Error(`notion model ${modelId} projection defaults titles are required`);
+  }
+  if (!Number.isFinite(defaults.maxOrder) || defaults.maxOrder < 0) {
+    throw new Error(`notion model ${modelId} projection defaults.maxOrder must be a valid number`);
+  }
+  if (!period.presentLabel.trim()) {
+    throw new Error(`notion model ${modelId} projection period.presentLabel is required`);
+  }
+
+  for (const [key, order] of Object.entries(sectionOrderFallback)) {
+    if (!key.trim()) {
+      throw new Error(`notion model ${modelId} projection sectionOrderFallback key is empty`);
+    }
+    if (!Number.isFinite(order)) {
+      throw new Error(
+        `notion model ${modelId} projection sectionOrderFallback value must be numeric`
+      );
+    }
+  }
+}
+
+function validateFlatListProjection(
+  modelId: string,
+  projection: NotionFlatListProjectionDescriptor,
+  schemaMapping: NotionModelSchemaMappingDescriptor | undefined
+): void {
+  const fieldValues = Object.values(projection.fields);
+  validateProjectionFieldRefs(modelId, fieldValues, schemaMapping);
+
+  if (projection.sortBy) {
+    const allowedFields = new Set(Object.keys(projection.fields));
+    for (const sort of projection.sortBy) {
+      if (!allowedFields.has(sort.field)) {
         throw new Error(
-          `notion model ${descriptor.id} projection sectionOrderFallback value must be numeric`
-        );
-      }
-    }
-
-    const schemaMapping = descriptor.schemaMapping;
-    if (!schemaMapping) {
-      throw new Error(`notion model ${descriptor.id} projection requires schemaMapping`);
-    }
-
-    const allowedAppFields = new Set([
-      ...schemaMapping.expectations.map((field) => field.appField),
-      ...(schemaMapping.builtinChecks ?? []).map((field) => field.appField),
-    ]);
-
-    for (const appField of fieldValues) {
-      if (!allowedAppFields.has(appField)) {
-        throw new Error(
-          `notion model ${descriptor.id} projection field references unknown appField: ${appField}`
+          `notion model ${modelId} projection sortBy references unknown field: ${sort.field}`
         );
       }
     }
   }
-
-  return descriptor;
 }

@@ -148,7 +148,7 @@ export class ProcessNextNotionSyncJobUseCase {
     const coverUrl =
       asOptionalString(mappedFields["post.cover"]) ??
       extractPropertyCoverUrl(page.properties) ??
-      extractFirstImageUrlFromBlocks(blocks.results);
+      null;
     const pageIcon = asPostIconValue(mappedFields["post.icon"]) ?? extractPageIcon(page.icon);
     const richTextProperties = extractRichTextProperties(page.properties);
     const createdTimeRaw = asOptionalString(mappedFields["post.createdTime"]) ?? page.created_time;
@@ -307,33 +307,6 @@ function extractPropertyCoverUrl(properties: Record<string, unknown>): string | 
   return null;
 }
 
-function extractFirstImageUrlFromBlocks(blocks: Array<Record<string, unknown>>): string | null {
-  for (const block of blocks) {
-    const type = typeof block.type === "string" ? block.type : null;
-    if (!type) {
-      continue;
-    }
-
-    if (type === "image") {
-      const imageData = block.image;
-      const imageUrl = extractNotionFileLikeUrl(imageData);
-      if (imageUrl) {
-        return imageUrl;
-      }
-    }
-
-    const blockData = block[type];
-    if (isPlainObject(blockData) && Array.isArray(blockData.children)) {
-      const children = blockData.children.filter(isPlainObject);
-      const nested = extractFirstImageUrlFromBlocks(children);
-      if (nested) {
-        return nested;
-      }
-    }
-  }
-
-  return null;
-}
 
 
 function extractRichTextProperties(properties: Record<string, unknown>): Record<string, unknown[]> {

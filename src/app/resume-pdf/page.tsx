@@ -104,110 +104,112 @@ export default async function ResumePdfPage({
           <p className="mt-3 text-[12px] leading-5 text-neutral-800">{profileItem?.summary.text}</p>
         </header>
 
-        <section className="mt-4 grid grid-cols-[1.05fr_1.95fr] gap-5">
-          <div className="space-y-4">
-            <section>
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
-                Highlights
-              </h2>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {aboutSection?.tags.map((tag) => (
-                  <span key={tag} className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] text-neutral-700">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </section>
+        <div className="mt-4 space-y-4">
+          <section>
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
+              Highlights
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {aboutSection?.tags.map((tag) => (
+                <span key={tag} className="rounded border border-neutral-300 px-1.5 py-0.5 text-[10px] text-neutral-700">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </section>
 
+          <section>
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
+              Education
+            </h2>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {educationItems.map((item) => (
+                <article key={item.key} className="rounded border border-neutral-200 p-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
+                    {item.media.logoUrl ? (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
+                        <Image
+                          src={item.media.logoUrl}
+                          alt={`${item.title} logo`}
+                          width={32}
+                          height={32}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-[10px] text-neutral-700">
+                    {normalizePeriod(item.period.label ?? "")}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
+              Skills
+            </h2>
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+              {skillItems.map((item) => (
+                <article key={item.key}>
+                  <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
+                  <p className="text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {awardItems.length > 0 ? (
             <section>
               <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
-                Education
+                Awards
               </h2>
               <div className="mt-2 space-y-2">
-                {educationItems.map((item) => (
+                {awardItems.map((item) => (
                   <article key={item.key} className="rounded border border-neutral-200 p-2">
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-x-3">
                       <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.media.logoUrl ? (
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
-                          <Image
-                            src={item.media.logoUrl}
-                            alt={`${item.title} logo`}
-                            width={32}
-                            height={32}
-                            className="h-full w-full object-contain"
-                          />
-                        </div>
+                      {item.period.label ? (
+                        <p className="text-[10px] text-neutral-700">
+                          {normalizePeriod(item.period.label)}
+                        </p>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-[10px] text-neutral-700">
-                      {normalizePeriod(item.period.label ?? "")}
-                    </p>
+                    {item.summary.text ? (
+                      <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
+                    ) : null}
                   </article>
                 ))}
               </div>
             </section>
+          ) : null}
 
+          {certificationItems.length > 0 ? (
             <section>
               <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
-                Skills
+                Certifications
               </h2>
               <div className="mt-2 space-y-2">
-                {skillItems.map((item) => (
-                  <article key={item.key}>
-                    <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                    <p className="text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
+                {certificationItems.map((item) => (
+                  <article key={item.key} className="rounded border border-neutral-200 p-2">
+                    <div className="flex items-center gap-x-3">
+                      <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
+                      {item.period.label ? (
+                        <p className="text-[10px] text-neutral-700">
+                          {normalizePeriod(item.period.label)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {item.summary.text ? (
+                      <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
+                    ) : null}
                   </article>
                 ))}
               </div>
             </section>
-
-            {awardItems.length > 0 ? (
-              <section>
-                <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
-                  Awards
-                </h2>
-                <div className="mt-2 space-y-2">
-                  {awardItems.map((item) => (
-                    <article key={item.key} className="rounded border border-neutral-200 p-2">
-                      <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.period.label ? (
-                        <p className="mt-1 text-[10px] text-neutral-700">
-                          {normalizePeriod(item.period.label)}
-                        </p>
-                      ) : null}
-                      {item.summary.text ? (
-                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {certificationItems.length > 0 ? (
-              <section>
-                <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
-                  Certifications
-                </h2>
-                <div className="mt-2 space-y-2">
-                  {certificationItems.map((item) => (
-                    <article key={item.key} className="rounded border border-neutral-200 p-2">
-                      <p className="text-[11px] font-semibold text-neutral-900">{item.title}</p>
-                      {item.period.label ? (
-                        <p className="mt-1 text-[10px] text-neutral-700">
-                          {normalizePeriod(item.period.label)}
-                        </p>
-                      ) : null}
-                      {item.summary.text ? (
-                        <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-          </div>
+          ) : null}
 
           <section>
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-neutral-900">
@@ -217,11 +219,14 @@ export default async function ResumePdfPage({
               {experienceItems.map((item) => (
                 <article key={item.key} className="rounded border border-neutral-200 p-2.5">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <p className="text-[11px] font-semibold text-neutral-900">{item.organization}</p>
-                      {item.period.label ? (
-                        <p className="text-[10px] font-medium text-amber-700">{item.period.label}</p>
-                      ) : null}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p className="text-[11px] font-semibold text-neutral-900">{item.organization}</p>
+                        {item.period.label ? (
+                          <p className="text-[10px] font-medium text-amber-700">{item.period.label}</p>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 text-[11px] font-semibold text-neutral-800">{item.title}</p>
                     </div>
                     {item.media.logoUrl ? (
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-neutral-300 p-0.5">
@@ -235,7 +240,6 @@ export default async function ResumePdfPage({
                       </div>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-[11px] font-semibold text-neutral-800">{item.title}</p>
                   {item.summary.text ? (
                     <p className="mt-1 text-[10px] leading-4 text-neutral-700">{item.summary.text}</p>
                   ) : null}
@@ -243,7 +247,7 @@ export default async function ResumePdfPage({
               ))}
             </div>
           </section>
-        </section>
+        </div>
       </article>
     </main>
   );

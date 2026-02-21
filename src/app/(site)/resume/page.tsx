@@ -112,11 +112,11 @@ export default async function ResumePage() {
         >
           <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
             <h2 className="text-2xl font-semibold leading-tight tracking-tight md:text-3xl">{section.title}</h2>
-            <div className="space-y-1.5 pt-1">
+            <div className="flex flex-wrap gap-1.5 pt-1">
               {section.tags.map((tag) => (
-                <p key={tag} className="text-sm text-muted-foreground">
+                <Badge key={tag} variant="outline" className="text-muted-foreground">
                   #{tag}
-                </p>
+                </Badge>
               ))}
             </div>
           </aside>

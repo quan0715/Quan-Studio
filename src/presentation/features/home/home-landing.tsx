@@ -6,12 +6,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Button } from "@/presentation/components/ui/button";
 import { Card, CardContent } from "@/presentation/components/ui/card";
+import { ProjectCard } from "@/presentation/features/project/project-card";
 import { formatIsoToUtcDate } from "@/presentation/lib/date-time";
 import { cn } from "@/presentation/lib/utils";
+import type { PublicMediaLinkDto } from "@/presentation/types/media-link";
 import type { PostListItemDto } from "@/presentation/types/post";
+import type { ProjectItem } from "@/presentation/types/project";
 
 type HomeLandingProps = {
   latestPosts: PostListItemDto[];
+  socialLinks: PublicMediaLinkDto[];
+  projects: ProjectItem[];
 };
 
 type GalleryBlock = {
@@ -43,6 +48,13 @@ const profileTags = [
   "Design Systems",
 ];
 
+const DEFAULT_SOCIAL_LINKS: Array<{ label: string; href: string }> = [
+  { label: "GitHub", href: "https://github.com/" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/" },
+  { label: "Instagram", href: "https://www.instagram.com/" },
+  { label: "X", href: "https://x.com/" },
+];
+
 function blockToneClassName(tone: GalleryBlock["tone"]): string {
   switch (tone) {
     case "accent":
@@ -69,9 +81,18 @@ function blockHeightClassName(size: GalleryBlock["size"] = "md"): string {
   }
 }
 
-function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
+function buildGalleryBlocks(
+  latestPosts: PostListItemDto[],
+  socialLinks: PublicMediaLinkDto[]
+): GalleryBlock[] {
   const latest = latestPosts[0] ?? null;
-  const secondLatest = latestPosts[1] ?? null;
+  const blockLinks = socialLinks
+    .filter((item) => Boolean(item.url.trim()))
+    .slice(0, 8)
+    .map((item) => ({
+      label: item.label.trim() || item.platform.trim(),
+      href: item.url.trim(),
+    }));
 
   return [
     {
@@ -102,20 +123,26 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       column: 1,
       size: "md",
       tone: "light",
-      links: [
-        { label: "GitHub", href: "https://github.com/" },
-        { label: "LinkedIn", href: "https://www.linkedin.com/" },
-        { label: "Instagram", href: "https://www.instagram.com/" },
-        { label: "X", href: "https://x.com/" },
-      ],
+      links: blockLinks.length > 0 ? blockLinks : DEFAULT_SOCIAL_LINKS,
     },
     {
       id: "resume",
       title: "完整履歷",
-      subtitle: "Section > Group > Item",
-      description: "以模組化結構管理履歷內容，下一步可直接接 Notion 同步資料。",
+      subtitle: "Resume",
+      description: "查看我的完整經歷、技能與學歷背景。",
       href: "/resume",
       cta: "查看履歷",
+      column: 2,
+      size: "md",
+      tone: "dark",
+    },
+    {
+      id: "projects",
+      title: "Projects",
+      subtitle: "Side Projects & Works",
+      description: "瀏覽我的專案作品集，涵蓋設計與工程實作。",
+      href: "/projects",
+      cta: "查看所有專案",
       column: 2,
       size: "md",
       tone: "dark",
@@ -152,7 +179,7 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
     {
       id: "blog-1",
       title: latest ? latest.title : "Latest Blog Post",
-      subtitle: latest ? `Blog 01 · ${formatIsoToUtcDate(latest.updatedAt)}` : "Blog 01",
+      subtitle: latest ? `Blog · ${formatIsoToUtcDate(latest.updatedAt)}` : "Blog",
       description: latest?.excerpt ?? "記錄系統設計、同步流程與實作細節。",
       href: latest ? `/blog/${latest.slug}` : "/blog",
       cta: latest ? "閱讀最新文章" : "瀏覽 Blog",
@@ -160,22 +187,14 @@ function buildGalleryBlocks(latestPosts: PostListItemDto[]): GalleryBlock[] {
       size: "lg",
       tone: "image",
     },
-    {
-      id: "blog-2",
-      title: secondLatest ? secondLatest.title : "Second Latest Post",
-      subtitle: secondLatest ? `Blog 02 · ${formatIsoToUtcDate(secondLatest.updatedAt)}` : "Blog 02",
-      description: secondLatest?.excerpt ?? "更多內容與技術筆記，持續更新中。",
-      href: secondLatest ? `/blog/${secondLatest.slug}` : "/blog",
-      cta: secondLatest ? "閱讀第二新文章" : "瀏覽全部文章",
-      column: 3,
-      size: "lg",
-      tone: "image",
-    },
   ];
 }
 
-export function HomeLanding({ latestPosts }: HomeLandingProps) {
-  const blocks = useMemo(() => buildGalleryBlocks(latestPosts), [latestPosts]);
+export function HomeLanding({ latestPosts, socialLinks, projects }: HomeLandingProps) {
+  const blocks = useMemo(
+    () => buildGalleryBlocks(latestPosts, socialLinks),
+    [latestPosts, socialLinks]
+  );
   const blocksByColumn = useMemo(
     () => ({
       1: blocks.filter((block) => block.column === 1),
@@ -419,6 +438,30 @@ export function HomeLanding({ latestPosts }: HomeLandingProps) {
           ))}
         </div>
       </section>
+
+      {projects.length > 0 ? (
+        <section className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <Badge variant="outline">Projects</Badge>
+              <h2 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">
+                Side Projects & Works
+              </h2>
+            </div>
+            <Link
+              href="/projects"
+              className="text-sm font-medium text-primary transition-colors hover:text-primary/80"
+            >
+              查看全部 →
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.slice(0, 6).map((item) => (
+              <ProjectCard key={item.key} item={item} />
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

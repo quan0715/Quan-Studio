@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PostContentRenderer } from "@/presentation/features/post-renderer/post-content-renderer";
 
-vi.mock("@/presentation/features/notion-sync/resilient-notion-image", () => ({
+vi.mock("@/presentation/components/resilient-notion-image", () => ({
   ResilientNotionImage: ({
     src,
     alt,

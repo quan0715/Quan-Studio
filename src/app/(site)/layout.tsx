@@ -5,7 +5,8 @@ export default function SiteLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const navItems = [
-    { href: "/", label: "Portfolio" },
+    { href: "/", label: "Home" },
+    { href: "/projects", label: "Projects" },
     { href: "/resume", label: "Resume" },
     { href: "/blog", label: "Blog" },
     { href: "/studio/posts", label: "Studio" },

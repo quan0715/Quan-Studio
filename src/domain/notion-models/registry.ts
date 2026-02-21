@@ -1,8 +1,9 @@
 import { blogNotionModel } from "@/domain/notion-models/blog.notion";
 import type { NotionModelDescriptor } from "@/domain/notion-models/model-descriptor";
+import { projectNotionModel } from "@/domain/notion-models/project.notion";
 import { resumeNotionModel } from "@/domain/notion-models/resume.notion";
 
-const notionModelRegistry = [blogNotionModel, resumeNotionModel] as const;
+const notionModelRegistry = [blogNotionModel, resumeNotionModel, projectNotionModel] as const;
 
 export type NotionModelId = (typeof notionModelRegistry)[number]["id"];
 export type NotionSchemaSource = Exclude<(typeof notionModelRegistry)[number]["schemaSource"], null>;

@@ -153,8 +153,8 @@ describe("BuildResumeGroupedViewService", () => {
       },
       location: "Taipei, Taiwan",
       summary: {
-        text: "Built systems\n- Scaled API",
-        bullets: ["Built systems", "Scaled API"],
+        text: "Built systems",
+        bullets: ["Scaled API"],
       },
       media: {
         logoUrl: "https://example.com/logo-1.png",

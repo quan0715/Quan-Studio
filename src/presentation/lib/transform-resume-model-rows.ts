@@ -60,10 +60,7 @@ export function toResumeSections(rows: Array<Record<string, TypedFieldValue>>): 
         start: dateRange.start,
         end: dateRange.end,
       },
-      summary: {
-        text: summaryText,
-        bullets: extractSummaryBullets(summaryText),
-      },
+      summary: parseSummary(summaryText),
       tags,
       media: {
         logoUrl,
@@ -199,12 +196,25 @@ function parseDate(value: string | null): number {
   return Number.isNaN(parsed) ? Number.MIN_SAFE_INTEGER : parsed;
 }
 
-function extractSummaryBullets(summary: string | null): string[] {
-  if (!summary) return [];
-  return summary
-    .split("\n")
-    .map((line) => line.replace(/^[-*•]\s*/, "").trim())
-    .filter((line) => line.length > 0);
+function parseSummary(summary: string | null): { text: string | null; bullets: string[] } {
+  if (!summary) return { text: null, bullets: [] };
+
+  const lines = summary.split("\n");
+  const textLines: string[] = [];
+  const bullets: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^[-*•]\s*/.test(trimmed)) {
+      bullets.push(trimmed.replace(/^[-*•]\s*/, "").trim());
+    } else {
+      textLines.push(trimmed);
+    }
+  }
+
+  const text = textLines.length > 0 ? textLines.join("\n") : null;
+  return { text, bullets };
 }
 
 function formatPeriodLabel(start: string | null, end: string | null): string | null {

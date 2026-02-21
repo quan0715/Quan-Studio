@@ -162,10 +162,7 @@ export class BuildResumeGroupedViewService implements ProjectionBuilder {
           start: dateRange.start,
           end: dateRange.end,
         },
-        summary: {
-          text: summaryText,
-          bullets: extractSummaryBullets(summaryText),
-        },
+        summary: parseSummary(summaryText),
         tags,
         media: {
           logoUrl,
@@ -351,25 +348,25 @@ function formatDateLabel(value: string): string {
   return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
-function extractSummaryBullets(summary: string | null): string[] {
+function parseSummary(summary: string | null): { text: string | null; bullets: string[] } {
   if (!summary) {
-    return [];
+    return { text: null, bullets: [] };
   }
 
-  const lines = summary
-    .split("\n")
-    .map((line) => line.trim());
+  const lines = summary.split("\n");
+  const textLines: string[] = [];
+  const bullets: string[] = [];
 
-  if (lines.length === 0) {
-    return [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^[-*•]\s*/.test(trimmed)) {
+      bullets.push(trimmed.replace(/^[-*•]\s*/, "").trim());
+    } else {
+      textLines.push(trimmed);
+    }
   }
 
-  const hasExplicitBullets = lines.some((line) => /^[-*•]\s+/.test(line));
-  if (!hasExplicitBullets && lines.length === 1) {
-    return [];
-  }
-
-  return lines
-    .map((line) => line.replace(/^[-*•]\s*/, ""))
-    .filter((line) => line.length > 0);
+  const text = textLines.length > 0 ? textLines.join("\n") : null;
+  return { text, bullets };
 }

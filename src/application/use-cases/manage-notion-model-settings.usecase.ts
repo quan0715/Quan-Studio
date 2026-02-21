@@ -5,7 +5,6 @@ import type {
 } from "@/application/services/list-notion-source-page-data-sources.service";
 import type { IntegrationConfigKey } from "@/domain/integration-config/integration-config";
 import type { IntegrationConfigRepository } from "@/domain/integration-config/integration-config-repository";
-import { env } from "@/infrastructure/config/env";
 import { getNotionModelById, listNotionModels, type NotionModelId } from "@/domain/notion-models/registry";
 
 export type NotionModelTemplate = NotionModelId;
@@ -43,11 +42,12 @@ type SelectNotionModelSourceInput = {
 export class GetNotionModelSettingsUseCase {
   constructor(
     private readonly sourcePageDataSourcesService: ListNotionSourcePageDataSourcesService,
-    private readonly integrationConfigRepository: IntegrationConfigRepository
+    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly sourcePageId: string
   ) {}
 
   async execute(): Promise<NotionModelSettingsOutput> {
-    const sourcePageId = readSourcePageId();
+    const sourcePageId = this.resolveSourcePageId();
     const availableTemplates = listNotionModels();
     const [configs, candidates] = await Promise.all([
       this.integrationConfigRepository.findByKeys([
@@ -82,12 +82,21 @@ export class GetNotionModelSettingsUseCase {
       },
     };
   }
+
+  private resolveSourcePageId(): string {
+    const sourcePageId = this.sourcePageId.trim();
+    if (!sourcePageId) {
+      throw new AppError("VALIDATION_ERROR", "NOTION_SOURCE_PAGE_ID is not configured");
+    }
+    return sourcePageId;
+  }
 }
 
 export class SelectNotionModelSourceUseCase {
   constructor(
     private readonly sourcePageDataSourcesService: ListNotionSourcePageDataSourcesService,
-    private readonly integrationConfigRepository: IntegrationConfigRepository
+    private readonly integrationConfigRepository: IntegrationConfigRepository,
+    private readonly sourcePageId: string
   ) {}
 
   async execute(input: SelectNotionModelSourceInput): Promise<void> {
@@ -101,7 +110,7 @@ export class SelectNotionModelSourceUseCase {
       throw new AppError("VALIDATION_ERROR", `unknown template: ${input.template}`);
     }
 
-    const sourcePageId = readSourcePageId();
+    const sourcePageId = this.resolveSourcePageId();
     const candidates = await this.sourcePageDataSourcesService.execute(sourcePageId);
     const target = candidates.find((item) => item.dataSourceId === dataSourceId);
     if (!target) {
@@ -113,6 +122,14 @@ export class SelectNotionModelSourceUseCase {
 
     await this.integrationConfigRepository.upsert(descriptor.dataSourceConfigKey, dataSourceId);
   }
+
+  private resolveSourcePageId(): string {
+    const sourcePageId = this.sourcePageId.trim();
+    if (!sourcePageId) {
+      throw new AppError("VALIDATION_ERROR", "NOTION_SOURCE_PAGE_ID is not configured");
+    }
+    return sourcePageId;
+  }
 }
 
 function resolveConfiguredDataSourceId(
@@ -121,12 +138,4 @@ function resolveConfiguredDataSourceId(
 ): string | null {
   const value = configMap.get(configKey);
   return value && value.length > 0 ? value : null;
-}
-
-function readSourcePageId(): string {
-  const sourcePageId = env.notionSourcePageId.trim();
-  if (!sourcePageId) {
-    throw new AppError("VALIDATION_ERROR", "NOTION_SOURCE_PAGE_ID is not configured");
-  }
-  return sourcePageId;
 }

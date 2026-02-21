@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ResilientNotionImage } from "@/presentation/features/notion-sync/resilient-notion-image";
+import { ResilientNotionImage } from "@/presentation/components/resilient-notion-image";
 import { cn, toAnchorSafeId } from "@/presentation/lib/utils";
 import { extractNotionFileLikeUrl, richTextToPlain } from "@/domain/notion/notion-property-readers";
 import { isPlainObject } from "@/shared/utils/type-guards";

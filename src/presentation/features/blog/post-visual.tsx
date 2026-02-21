@@ -1,4 +1,4 @@
-import { ResilientNotionImage } from "@/presentation/features/notion-sync/resilient-notion-image";
+import { ResilientNotionImage } from "@/presentation/components/resilient-notion-image";
 import { cn } from "@/presentation/lib/utils";
 
 export type PostVisualMeta = {

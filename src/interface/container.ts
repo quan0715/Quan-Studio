@@ -8,17 +8,22 @@ import {
 import { GetStudioPostByNotionPageIdUseCase } from "@/application/use-cases/get-studio-post-by-notion-page-id.usecase";
 import { ListPublicPostsUseCase } from "@/application/use-cases/list-public-posts.usecase";
 import { ListNotionDataSourcePagesUseCase } from "@/application/use-cases/list-notion-data-source-pages.usecase";
-import { ListNotionResumeDataSourceUseCase } from "@/application/use-cases/list-notion-resume-data-source.usecase";
 import { ListNotionSyncJobsUseCase } from "@/application/use-cases/list-notion-sync-jobs.usecase";
 import { ListStudioPostsUseCase } from "@/application/use-cases/list-studio-posts.usecase";
 import {
   GetNotionModelSettingsUseCase,
   SelectNotionModelSourceUseCase,
 } from "@/application/use-cases/manage-notion-model-settings.usecase";
+import { QueryNotionModelUseCase } from "@/application/use-cases/query-notion-model.usecase";
 import { ListNotionSourcePageDataSourcesService } from "@/application/services/list-notion-source-page-data-sources.service";
+import { QueryNotionModelDataService } from "@/application/services/query-notion-model-data.service";
+import { BuildResumeGroupedViewService } from "@/application/services/build-resume-grouped-view.service";
+import { registerProjectionBuilder } from "@/application/services/projection-builder-registry";
 import { ProcessNextNotionSyncJobUseCase } from "@/application/use-cases/process-next-notion-sync-job.usecase";
+import { BlogSyncHandler } from "@/application/sync-handlers/blog-sync-handler";
 import { RetryNotionSyncJobUseCase } from "@/application/use-cases/retry-notion-sync-job.usecase";
 import { NotionClient } from "@/infrastructure/notion/notion-client";
+import { env } from "@/infrastructure/config/env";
 import { PrismaIntegrationConfigRepository } from "@/infrastructure/repositories/prisma-integration-config-repository";
 import { PrismaNotionSyncJobRepository } from "@/infrastructure/repositories/prisma-notion-sync-job-repository";
 import { PrismaPostRepository } from "@/infrastructure/repositories/prisma-post-repository";
@@ -33,7 +38,7 @@ type Container = {
   processNextNotionSyncJobUseCase: ProcessNextNotionSyncJobUseCase;
   listNotionSyncJobsUseCase: ListNotionSyncJobsUseCase;
   listNotionDataSourcePagesUseCase: ListNotionDataSourcePagesUseCase;
-  listNotionResumeDataSourceUseCase: ListNotionResumeDataSourceUseCase;
+  queryNotionModelUseCase: QueryNotionModelUseCase;
   retryNotionSyncJobUseCase: RetryNotionSyncJobUseCase;
   getNotionModelSettingsUseCase: GetNotionModelSettingsUseCase;
   selectNotionModelSourceUseCase: SelectNotionModelSourceUseCase;
@@ -50,16 +55,32 @@ function createContainer(): Container {
   const notionSyncJobRepository = new PrismaNotionSyncJobRepository();
   const integrationConfigRepository = new PrismaIntegrationConfigRepository();
   const notionClient = new NotionClient();
+
+  // Projection builders
+  registerProjectionBuilder("resume_grouped", new BuildResumeGroupedViewService());
+
+  // Services
   const notionSourcePageDataSourcesService = new ListNotionSourcePageDataSourcesService(
     notionClient
   );
+  const queryNotionModelDataService = new QueryNotionModelDataService(notionClient);
+
+  // Sync handlers
+  const blogSyncHandler = new BlogSyncHandler(
+    postRepository,
+    notionClient,
+    integrationConfigRepository
+  );
+
   const getNotionModelSettingsUseCase = new GetNotionModelSettingsUseCase(
     notionSourcePageDataSourcesService,
-    integrationConfigRepository
+    integrationConfigRepository,
+    env.notionSourcePageId
   );
   const selectNotionModelSourceUseCase = new SelectNotionModelSourceUseCase(
     notionSourcePageDataSourcesService,
-    integrationConfigRepository
+    integrationConfigRepository,
+    env.notionSourcePageId
   );
 
   return {
@@ -77,9 +98,8 @@ function createContainer(): Container {
     ),
     processNextNotionSyncJobUseCase: new ProcessNextNotionSyncJobUseCase(
       notionSyncJobRepository,
-      postRepository,
       notionClient,
-      integrationConfigRepository
+      [blogSyncHandler]
     ),
     listNotionSyncJobsUseCase: new ListNotionSyncJobsUseCase(notionSyncJobRepository),
     listNotionDataSourcePagesUseCase: new ListNotionDataSourcePagesUseCase(
@@ -87,8 +107,8 @@ function createContainer(): Container {
       integrationConfigRepository,
       postRepository
     ),
-    listNotionResumeDataSourceUseCase: new ListNotionResumeDataSourceUseCase(
-      notionClient,
+    queryNotionModelUseCase: new QueryNotionModelUseCase(
+      queryNotionModelDataService,
       integrationConfigRepository
     ),
     retryNotionSyncJobUseCase: new RetryNotionSyncJobUseCase(notionSyncJobRepository, notionClient),
@@ -109,30 +129,9 @@ export function getContainer(): Container {
     return createContainer();
   }
 
-  if (!isContainerInitialized(globalThis.__quanStudioContainer)) {
+  if (!globalThis.__quanStudioContainer) {
     globalThis.__quanStudioContainer = createContainer();
   }
 
   return globalThis.__quanStudioContainer;
-}
-
-function isContainerInitialized(container: Container | undefined): container is Container {
-  return Boolean(
-    container &&
-      container.listStudioPostsUseCase &&
-      container.getStudioPostByNotionPageIdUseCase &&
-      container.listPublicPostsUseCase &&
-      container.getPublicPostBySlugUseCase &&
-      container.enqueueNotionSyncJobUseCase &&
-      container.enqueuePublishedNotionSyncJobsUseCase &&
-      container.processNextNotionSyncJobUseCase &&
-      container.listNotionSyncJobsUseCase &&
-      container.listNotionDataSourcePagesUseCase &&
-      container.listNotionResumeDataSourceUseCase &&
-      container.retryNotionSyncJobUseCase &&
-      container.getNotionModelSettingsUseCase &&
-      container.selectNotionModelSourceUseCase &&
-      container.getNotionSchemaMappingUseCase &&
-      container.updateNotionSchemaMappingUseCase
-  );
 }

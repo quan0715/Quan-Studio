@@ -1,8 +1,10 @@
 export type ResumeEntry = {
   key: string;
   title: string;
+  contentBlocks: Array<Record<string, unknown>>;
   location: string | null;
   period: {
+    kind: "event" | "experience" | "range";
     label: string | null;
     start: string | null;
     end: string | null;

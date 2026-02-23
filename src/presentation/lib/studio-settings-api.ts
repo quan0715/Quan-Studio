@@ -81,6 +81,17 @@ export async function addNotionModelField(
   );
 }
 
+export async function deleteNotionModelDefinition(
+  modelKey: string
+): Promise<ApiResponse<NotionModelDefinitionListDto>> {
+  return apiRequest<NotionModelDefinitionListDto>(
+    `/api/studio/settings/notion/model-definitions/${encodeURIComponent(modelKey)}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
 export async function updateNotionModelField(
   modelKey: string,
   fieldKey: string,

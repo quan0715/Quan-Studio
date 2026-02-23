@@ -1,6 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ComponentType } from "react";
+import {
+  CalendarClock,
+  CalendarDays,
+  Check,
+  CheckSquare,
+  File,
+  Hash,
+  Image as ImageIcon,
+  Link2,
+  ListFilter,
+  ListPlus,
+  PenSquare,
+  Tag,
+  TextCursorInput,
+  Trash2,
+  Type,
+  X,
+} from "lucide-react";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Button } from "@/presentation/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/components/ui/card";
@@ -24,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/presentation/compone
 import {
   addNotionModelField,
   createNotionModelDefinition,
+  deleteNotionModelDefinition,
   deleteNotionModelField,
   getNotionModelSettings,
   getNotionSchemaMapping,
@@ -87,33 +107,35 @@ type ResolveDialogState =
     };
 
 const FIELD_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "title", label: "T title" },
-  { value: "rich_text", label: "R rich_text" },
-  { value: "select", label: "S select" },
-  { value: "multi_select", label: "M multi_select" },
-  { value: "status", label: "S status" },
-  { value: "number", label: "# number" },
-  { value: "date", label: "D date" },
-  { value: "checkbox", label: "C checkbox" },
-  { value: "url", label: "U url" },
-  { value: "file", label: "F file" },
-  { value: "media", label: "M media" },
-  { value: "builtin:page.icon", label: "I icon" },
-  { value: "builtin:page.cover", label: "C cover" },
-  { value: "builtin:page.created_time", label: "C created_time" },
-  { value: "builtin:page.last_edited_time", label: "L last_edited_time" },
+  { value: "title", label: "title" },
+  { value: "rich_text", label: "rich_text" },
+  { value: "select", label: "select" },
+  { value: "multi_select", label: "multi_select" },
+  { value: "status", label: "status" },
+  { value: "number", label: "number" },
+  { value: "date", label: "date" },
+  { value: "checkbox", label: "checkbox" },
+  { value: "url", label: "url" },
+  { value: "file", label: "file" },
+  { value: "media", label: "media" },
+  { value: "builtin:page.icon", label: "icon" },
+  { value: "builtin:page.cover", label: "cover" },
+  { value: "builtin:page.created_time", label: "created_time" },
+  { value: "builtin:page.last_edited_time", label: "last_edited_time" },
 ];
 
 export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProps) {
   const [settings, setSettings] = useState<NotionModelSettingsDto>(initialSettings);
   const [notice, setNotice] = useState<Notice>(null);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [bindingTemplate, setBindingTemplate] = useState<string | null>(null);
   const [modelDefinitions, setModelDefinitions] = useState<NotionModelDefinitionDto[]>([]);
   const [schemaMapping, setSchemaMapping] = useState<NotionSchemaMappingResultDto | null>(null);
   const [activeModelTab, setActiveModelTab] = useState<string>("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creatingModel, setCreatingModel] = useState(false);
+  const [deletingModelKey, setDeletingModelKey] = useState<string | null>(null);
   const [addingFieldModel, setAddingFieldModel] = useState<string | null>(null);
   const [savingFieldKey, setSavingFieldKey] = useState<string | null>(null);
   const [provisioningModel, setProvisioningModel] = useState<string | null>(null);
@@ -132,14 +154,17 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
     let active = true;
     void (async () => {
       setIsRefreshingModels(true);
-      const [settingsResponse, definitionsResponse] = await Promise.all([
+      setIsInitialLoading(true);
+      const [settingsResponse, definitionsResponse, schemaResponse] = await Promise.all([
         getNotionModelSettings(),
         listNotionModelDefinitions(),
+        getNotionSchemaMapping(),
       ]);
       if (!active) {
         return;
       }
       setIsRefreshingModels(false);
+      setIsInitialLoading(false);
 
       if (settingsResponse.ok) {
         setSettings(settingsResponse.data);
@@ -150,7 +175,6 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
         setActiveModelTab((prev) => prev || definitionsResponse.data.models[0]?.modelKey || "");
       }
 
-      const schemaResponse = await getNotionSchemaMapping();
       if (schemaResponse.ok) {
         setSchemaMapping(schemaResponse.data);
       }
@@ -221,6 +245,33 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
     setActiveModelTab(response.data.modelKey);
     setIsCreateDialogOpen(false);
     setNotice({ variant: "default", message: "Model created." });
+  }
+
+  async function onDeleteModelDefinition(modelKey: string) {
+    const confirmed = window.confirm(`Delete model "${modelKey}"? This action cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingModelKey(modelKey);
+    setNotice(null);
+    const response = await deleteNotionModelDefinition(modelKey);
+    setDeletingModelKey(null);
+
+    if (!response.ok) {
+      setNotice({ variant: "destructive", message: response.error.message });
+      return;
+    }
+
+    setModelDefinitions(response.data.models);
+    setActiveModelTab((prev) => {
+      if (prev !== modelKey) {
+        return prev;
+      }
+      return response.data.models[0]?.modelKey ?? "";
+    });
+    await Promise.all([loadModelSettings(), loadSchemaMapping()]);
+    setNotice({ variant: "default", message: `Model ${modelKey} deleted.` });
   }
 
   async function onBindSource(template: NotionModelTemplate, dataSourceId: string) {
@@ -541,7 +592,9 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
             </Button>
           </div>
 
-          {settings.candidates.length === 0 ? (
+          {isInitialLoading ? (
+            <LoadingTableSkeleton rows={4} />
+          ) : settings.candidates.length === 0 ? (
             <p className="text-xs text-muted-foreground">No data sources found under current source page.</p>
           ) : (
             <Table>
@@ -582,6 +635,17 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
           <p className="text-xs text-muted-foreground">Switch model by tabs, bind source first, then edit fields inline.</p>
         </CardHeader>
         <CardContent className="space-y-3">
+          {isInitialLoading ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <LoadingBlock className="h-8 w-20" />
+                <LoadingBlock className="h-8 w-20" />
+                <LoadingBlock className="h-8 w-20" />
+              </div>
+              <LoadingTableSkeleton rows={6} />
+            </div>
+          ) : (
+            <>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium">Models</p>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -670,6 +734,14 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
                               applied: {migrateResult.applied.length}, skipped: {migrateResult.skipped.length}
                             </Badge>
                           ) : null}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={deletingModelKey === model.modelKey}
+                            onClick={() => void onDeleteModelDefinition(model.modelKey)}
+                          >
+                            {deletingModelKey === model.modelKey ? "Deleting..." : "Delete Model"}
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -997,6 +1069,8 @@ export function NotionSettingsPanel({ initialSettings }: NotionSettingsPanelProp
               );
             })}
           </Tabs>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -1251,30 +1325,15 @@ function displayFieldType(field: NotionModelFieldDto): string {
 }
 
 function CheckIcon() {
-  return (
-    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Check aria-hidden="true" className="h-3.5 w-3.5" />;
 }
 
 function TrashIcon() {
-  return (
-    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M8 6V4H16V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M19 6L18 20H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />;
 }
 
 function XIcon() {
-  return (
-    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none">
-      <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+  return <X aria-hidden="true" className="h-3.5 w-3.5" />;
 }
 
 function RequiredPill({ required }: { required: boolean }) {
@@ -1327,48 +1386,58 @@ function FieldStatusPill({
 
 function FieldTypeBadge({ type }: { type: string }) {
   const normalized = type.trim().toLowerCase();
-  const icon = typeIconText(normalized);
+  const Icon = TYPE_ICON_COMPONENTS[normalized] ?? Type;
   return (
     <span className="inline-flex items-center gap-1 rounded-none border border-muted px-2 py-0.5 text-[11px]">
-      <span className="inline-flex h-4 w-4 items-center justify-center border text-[9px] font-semibold">{icon}</span>
+      <Icon aria-hidden="true" className="h-3.5 w-3.5" />
       {type}
     </span>
   );
 }
 
-function typeIconText(type: string): string {
-  switch (type) {
-    case "title":
-      return "T";
-    case "rich_text":
-      return "R";
-    case "select":
-      return "S";
-    case "multi_select":
-      return "M";
-    case "status":
-      return "S";
-    case "number":
-      return "#";
-    case "date":
-      return "D";
-    case "checkbox":
-      return "C";
-    case "url":
-      return "U";
-    case "file":
-      return "F";
-    case "media":
-      return "M";
-    case "icon":
-      return "I";
-    case "cover":
-      return "C";
-    case "created_time":
-      return "C";
-    case "last_edited_time":
-      return "L";
-    default:
-      return "?";
-  }
+const TYPE_ICON_COMPONENTS: Record<string, ComponentType<{ className?: string }>> = {
+  title: Type,
+  rich_text: TextCursorInput,
+  select: ListFilter,
+  multi_select: ListPlus,
+  status: Check,
+  number: Hash,
+  date: CalendarDays,
+  checkbox: CheckSquare,
+  url: Link2,
+  file: File,
+  media: ImageIcon,
+  icon: Tag,
+  cover: ImageIcon,
+  created_time: CalendarClock,
+  last_edited_time: PenSquare,
+};
+
+function LoadingBlock({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-none bg-muted ${className ?? ""}`} />;
+}
+
+function LoadingTableSkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="rounded-none border p-2">
+      <div className="mb-2 grid grid-cols-5 gap-2">
+        <LoadingBlock className="h-4 w-20" />
+        <LoadingBlock className="h-4 w-28" />
+        <LoadingBlock className="h-4 w-16" />
+        <LoadingBlock className="h-4 w-16" />
+        <LoadingBlock className="h-4 w-16" />
+      </div>
+      <div className="space-y-2">
+        {Array.from({ length: rows }).map((_, index) => (
+          <div key={`loading-row-${index}`} className="grid grid-cols-5 gap-2">
+            <LoadingBlock className="h-7 w-full" />
+            <LoadingBlock className="h-7 w-full" />
+            <LoadingBlock className="h-7 w-full" />
+            <LoadingBlock className="h-7 w-full" />
+            <LoadingBlock className="h-7 w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }

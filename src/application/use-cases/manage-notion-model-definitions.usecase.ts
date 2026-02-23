@@ -143,6 +143,19 @@ export class UpdateNotionModelDefinitionUseCase {
   }
 }
 
+export class DeleteNotionModelDefinitionUseCase {
+  constructor(private readonly repository: NotionModelDefinitionRepository) {}
+
+  async execute(modelKeyRaw: string): Promise<void> {
+    const modelKey = normalizeModelKey(modelKeyRaw);
+    const existing = await this.repository.findByModelKey(modelKey);
+    if (!existing) {
+      throw new AppError("VALIDATION_ERROR", `unknown model: ${modelKeyRaw}`);
+    }
+    await this.repository.deleteDefinition(modelKey);
+  }
+}
+
 export class AddNotionModelFieldUseCase {
   constructor(private readonly repository: NotionModelDefinitionRepository) {}
 
@@ -246,4 +259,3 @@ function toOutput(model: NotionModelDefinition): NotionModelDefinitionOutput {
     updatedAt: model.updatedAt.toISOString(),
   };
 }
-

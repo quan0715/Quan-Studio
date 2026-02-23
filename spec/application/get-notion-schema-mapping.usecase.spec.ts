@@ -77,6 +77,7 @@ function buildDefinitionRepo(dataSourceId: string): NotionModelDefinitionReposit
     updateDefinition: async () => { throw new Error("no"); },
     addField: async () => { throw new Error("no"); },
     updateField: async () => { throw new Error("no"); },
+    deleteDefinition: async () => undefined,
     deleteField: async () => undefined,
     upsertBinding: async () => undefined,
   };

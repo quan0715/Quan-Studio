@@ -1,7 +1,19 @@
 import type { TypedFieldValue } from "@/presentation/types/notion-model-query";
 import type { ResumeEntry, ResumeSection } from "@/presentation/types/resume";
 
-export function toResumeSections(rows: Array<Record<string, TypedFieldValue>>): ResumeSection[] {
+type ResumeRenderTarget = "website" | "pdf";
+type ResumePeriodKind = "event" | "experience" | "range";
+
+type ResumeTransformOptions = {
+  target?: ResumeRenderTarget;
+};
+
+export function toResumeSections(
+  rows: Array<Record<string, TypedFieldValue>>,
+  options: ResumeTransformOptions = {}
+): ResumeSection[] {
+  const target = options.target ?? "website";
+
   type TempSection = {
     key: string;
     title: string;
@@ -27,8 +39,8 @@ export function toResumeSections(rows: Array<Record<string, TypedFieldValue>>): 
   };
 
   for (const row of rows) {
-    const visibility = toStringValue(row["resume.visibility"])?.toLowerCase();
-    if (visibility === "private") {
+    const visibility = toStringValue(row["resume.visibility"]);
+    if (shouldHideByVisibility(visibility, target)) {
       continue;
     }
 
@@ -45,18 +57,27 @@ export function toResumeSections(rows: Array<Record<string, TypedFieldValue>>): 
     const logoUrl = toIconUrl(row["resume.logo"]);
     const summaryText = toStringValue(row["resume.summary"]);
     const tags = toStringArrayValue(row["resume.tags"]);
+    const contentBlocks = toBlockArray(row["__blocks"]);
     const periodStart = dateRange.start ?? dateRange.end;
     const sectionKey = normalizeKey(sectionTitle);
     const groupKey = normalizeKey(groupTitle);
+    const periodKind = resolvePeriodKind(
+      toStringValue(row["resume.periodType"]) ??
+        toStringValue(row["resume.dateType"]) ??
+        toStringValue(row["resume.temporalType"]),
+      sectionKey
+    );
 
     const entry: ResumeEntry = {
       key:
         toStringValue(row["__pageId"]) ??
         `${sectionKey}:${groupKey}:${entryTitle}:${dateRange.start ?? dateRange.end ?? "na"}`,
       title: entryTitle,
+      contentBlocks,
       location: toStringValue(row["resume.location"]),
       period: {
-        label: formatPeriodLabel(dateRange.start, dateRange.end),
+        kind: periodKind,
+        label: formatPeriodLabel(dateRange.start, dateRange.end, periodKind),
         start: dateRange.start,
         end: dateRange.end,
       },
@@ -121,6 +142,31 @@ export function toResumeSections(rows: Array<Record<string, TypedFieldValue>>): 
     }));
 }
 
+function shouldHideByVisibility(visibility: string | null, target: ResumeRenderTarget): boolean {
+  if (!visibility) return false;
+  const value = normalizeVisibilityValue(visibility);
+  if (value === "private") return true;
+
+  const websiteOnlyValues = new Set(["website", "web", "website-only", "web-only"]);
+  const pdfOnlyValues = new Set(["pdf", "resume-only", "pdf-only"]);
+
+  if (target === "pdf" && websiteOnlyValues.has(value)) {
+    return true;
+  }
+  if (target === "website" && pdfOnlyValues.has(value)) {
+    return true;
+  }
+
+  return false;
+}
+
+function normalizeVisibilityValue(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[_\s]+/g, "-");
+}
+
 function toStringValue(value: TypedFieldValue | undefined): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
@@ -132,6 +178,17 @@ function toNumberValue(value: TypedFieldValue | undefined): number | null {
 function toStringArrayValue(value: TypedFieldValue | undefined): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function toBlockArray(value: TypedFieldValue | undefined): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (item): item is Record<string, unknown> =>
+      typeof item === "object" && item !== null && !Array.isArray(item)
+  );
 }
 
 function toDateRange(value: TypedFieldValue | undefined): { start: string | null; end: string | null } {
@@ -217,14 +274,51 @@ function parseSummary(summary: string | null): { text: string | null; bullets: s
   return { text, bullets };
 }
 
-function formatPeriodLabel(start: string | null, end: string | null): string | null {
+function formatPeriodLabel(
+  start: string | null,
+  end: string | null,
+  kind: ResumePeriodKind
+): string | null {
   if (!start && !end) return null;
+
+  if (kind === "event") {
+    const eventDate = start ?? end;
+    return eventDate ? formatDateLabel(eventDate) : null;
+  }
+
   const startLabel = formatDateLabel(start);
-  const endLabel = end ? formatDateLabel(end) : "Present";
+  const endLabel = end ? formatDateLabel(end) : kind === "experience" ? "Present" : "";
   if (!startLabel && !endLabel) return null;
   if (!startLabel) return endLabel;
   if (!endLabel) return startLabel;
   return `${startLabel} - ${endLabel}`;
+}
+
+function resolvePeriodKind(
+  configuredValue: string | null,
+  sectionKey: string
+): ResumePeriodKind {
+  if (configuredValue) {
+    const normalized = configuredValue.trim().toLowerCase().replace(/[_\s]+/g, "-");
+    if (["event", "single", "single-date", "point-in-time"].includes(normalized)) {
+      return "event";
+    }
+    if (["experience", "current", "ongoing"].includes(normalized)) {
+      return "experience";
+    }
+    if (["range", "duration"].includes(normalized)) {
+      return "range";
+    }
+  }
+
+  if (["work-experience", "experience", "projects", "project"].includes(sectionKey)) {
+    return "experience";
+  }
+  if (["awards", "award", "certifications", "certification"].includes(sectionKey)) {
+    return "event";
+  }
+
+  return "range";
 }
 
 function formatDateLabel(value: string | null): string {
@@ -234,4 +328,3 @@ function formatDateLabel(value: string | null): string {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
-

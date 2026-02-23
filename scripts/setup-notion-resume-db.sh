@@ -84,6 +84,15 @@ cat > "${update_ds_payload}" <<JSON
     "Group": { "rich_text": {} },
     "Summary": { "rich_text": {} },
     "Date": { "date": {} },
+    "Period Type": {
+      "select": {
+        "options": [
+          { "name": "Event", "color": "blue" },
+          { "name": "Experience", "color": "green" },
+          { "name": "Range", "color": "gray" }
+        ]
+      }
+    },
     "Section Order": { "number": { "format": "number" } },
     "Group Order": { "number": { "format": "number" } },
     "Item Order": { "number": { "format": "number" } },
@@ -94,7 +103,9 @@ cat > "${update_ds_payload}" <<JSON
       "select": {
         "options": [
           { "name": "Public", "color": "green" },
-          { "name": "Private", "color": "gray" }
+          { "name": "Private", "color": "gray" },
+          { "name": "Website Only", "color": "blue" },
+          { "name": "PDF Only", "color": "orange" }
         ]
       }
     }

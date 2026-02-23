@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/presentation/components/ui/card";
+import { ResumeContentRenderer } from "@/presentation/features/resume/resume-content-renderer";
 import { toResumeSections } from "@/presentation/lib/transform-resume-model-rows";
 import { serverApiRequest } from "@/presentation/lib/server-api-client";
 import type { PublicModelQueryResponse } from "@/presentation/types/notion-model-query";
@@ -45,6 +46,14 @@ function ResumeItemNode({
                 <li key={bullet}>{bullet}</li>
               ))}
             </ul>
+          ) : null}
+
+          {item.contentBlocks.length > 0 ? (
+            <ResumeContentRenderer
+              blocks={item.contentBlocks}
+              className="mt-3 border-l border-border/60 pl-4 text-sm text-muted-foreground"
+              emptyText=""
+            />
           ) : null}
 
           {item.tags.length > 0 ? (
@@ -97,7 +106,7 @@ export default async function ResumePage() {
     );
   }
 
-  const sections = toResumeSections(response.data.rows);
+  const sections = toResumeSections(response.data.rows, { target: "website" });
 
   return (
     <section className="space-y-8">

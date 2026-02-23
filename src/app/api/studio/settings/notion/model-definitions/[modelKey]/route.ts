@@ -20,3 +20,16 @@ export async function PATCH(
     return jsonSuccess(updated);
   });
 }
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ modelKey: string }> }
+): Promise<Response> {
+  return handleApiRequest(request, async () => {
+    const container = getContainer();
+    const { modelKey } = await context.params;
+    await container.deleteNotionModelDefinitionUseCase.execute(modelKey);
+    const result = await container.listNotionModelDefinitionsUseCase.execute();
+    return jsonSuccess(result);
+  });
+}

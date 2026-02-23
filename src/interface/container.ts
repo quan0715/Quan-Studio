@@ -8,6 +8,7 @@ import {
 import {
   AddNotionModelFieldUseCase,
   CreateNotionModelDefinitionUseCase,
+  DeleteNotionModelDefinitionUseCase,
   DeleteNotionModelFieldUseCase,
   ListNotionModelDefinitionsUseCase,
   UpdateNotionModelDefinitionUseCase,
@@ -59,6 +60,7 @@ type Container = {
   listNotionModelDefinitionsUseCase: ListNotionModelDefinitionsUseCase;
   createNotionModelDefinitionUseCase: CreateNotionModelDefinitionUseCase;
   updateNotionModelDefinitionUseCase: UpdateNotionModelDefinitionUseCase;
+  deleteNotionModelDefinitionUseCase: DeleteNotionModelDefinitionUseCase;
   addNotionModelFieldUseCase: AddNotionModelFieldUseCase;
   updateNotionModelFieldUseCase: UpdateNotionModelFieldUseCase;
   deleteNotionModelFieldUseCase: DeleteNotionModelFieldUseCase;
@@ -167,6 +169,9 @@ function createContainer(): Container {
       notionModelDefinitionRepository
     ),
     updateNotionModelDefinitionUseCase: new UpdateNotionModelDefinitionUseCase(
+      notionModelDefinitionRepository
+    ),
+    deleteNotionModelDefinitionUseCase: new DeleteNotionModelDefinitionUseCase(
       notionModelDefinitionRepository
     ),
     addNotionModelFieldUseCase: new AddNotionModelFieldUseCase(

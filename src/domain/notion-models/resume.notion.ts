@@ -50,6 +50,13 @@ const resumeSchemaExpectations: NotionSchemaFieldExpectation[] = [
     description: "期間",
   },
   {
+    appField: "resume.periodType",
+    notionField: "Period Type",
+    expectedType: "select",
+    required: false,
+    description: "時間型態（event 或 experience）",
+  },
+  {
     appField: "resume.tags",
     notionField: "Tags",
     expectedType: "multi_select",

@@ -44,6 +44,12 @@ function createNotionClientWithPages(
       has_more: false,
       next_cursor: null,
     }),
+    retrieveAllBlockChildren: async () => ({
+      object: "list",
+      results: [{ object: "block", id: "block-1", type: "paragraph", paragraph: { rich_text: [] } }],
+      has_more: false,
+      next_cursor: null,
+    }),
   } as unknown as NotionClient;
 }
 
@@ -64,6 +70,7 @@ function createDefinitionRepo(dataSourceId: string | null): NotionModelDefinitio
     updateField: async () => {
       throw new Error("not implemented");
     },
+    deleteDefinition: async () => undefined,
     deleteField: async () => undefined,
     upsertBinding: async () => undefined,
     findByModelKey: async (modelKey: string) => {
@@ -178,6 +185,7 @@ describe("QueryNotionModelUseCase", () => {
     expect(output.meta.modelKey).toBe("resume");
     expect(output.meta.dataSourceId).toBe("ds-resume");
     expect(output.rows[0]?.["__pageId"]).toBe("resume-entry-1");
+    expect(Array.isArray(output.rows[0]?.["__blocks"])).toBe(true);
     expect(output.rows[0]?.["resume.name"]).toBe("Default Named Item");
   });
 });

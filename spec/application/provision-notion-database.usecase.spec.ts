@@ -20,6 +20,7 @@ function createRepo(): NotionModelDefinitionRepository {
     updateField: async () => {
       throw new Error("not used");
     },
+    deleteDefinition: async () => undefined,
     deleteField: async () => undefined,
     findByModelKey: async (key: string) =>
       key === "blog"
@@ -82,4 +83,3 @@ describe("ProvisionNotionDatabaseUseCase", () => {
     expect(repository.upsertBinding).toHaveBeenCalledWith("blog", "ds-456");
   });
 });
-

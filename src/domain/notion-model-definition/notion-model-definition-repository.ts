@@ -57,9 +57,9 @@ export interface NotionModelDefinitionRepository {
   findBySchemaSource(schemaSource: string): Promise<NotionModelDefinition | null>;
   createDefinition(input: CreateNotionModelDefinitionInput): Promise<NotionModelDefinition>;
   updateDefinition(input: UpdateNotionModelDefinitionInput): Promise<NotionModelDefinition>;
+  deleteDefinition(modelKey: string): Promise<void>;
   addField(input: AddNotionModelFieldInput): Promise<NotionModelField>;
   updateField(input: UpdateNotionModelFieldInput): Promise<NotionModelField>;
   deleteField(modelKey: string, fieldKey: string): Promise<void>;
   upsertBinding(modelKey: string, dataSourceId: string): Promise<void>;
 }
-

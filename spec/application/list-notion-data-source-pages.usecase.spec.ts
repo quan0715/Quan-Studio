@@ -24,6 +24,7 @@ function createModelRepo(dataSourceId: string): NotionModelDefinitionRepository 
     updateField: async () => {
       throw new Error("not used");
     },
+    deleteDefinition: async () => undefined,
     deleteField: async () => undefined,
     upsertBinding: async () => undefined,
     findByModelKey: async (modelKey: string) =>

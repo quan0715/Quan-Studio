@@ -49,7 +49,8 @@ export class QueryNotionModelUseCase {
       );
     }
 
-    const pages = await this.queryService.queryPages({ dataSourceId, limit });
+    const includeBlocks = model.modelKey === "resume";
+    const pages = await this.queryService.queryPages({ dataSourceId, limit, includeBlocks });
     const schema = toSchemaMappingFromDefinition(model);
 
     const schemaFieldMappingRaw = await this.integrationConfigRepository.findByKey(
@@ -66,8 +67,12 @@ export class QueryNotionModelUseCase {
         page: toPageLike(page),
       });
       const pageId = typeof page.id === "string" ? page.id : "";
+      const blocks = Array.isArray(page.__blocks)
+        ? page.__blocks.filter((block): block is Record<string, unknown> => isPlainObject(block))
+        : null;
       return {
         __pageId: pageId || null,
+        ...(blocks ? { __blocks: blocks } : {}),
         ...mapped,
       };
     });

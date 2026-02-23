@@ -113,6 +113,12 @@ export class PrismaNotionModelDefinitionRepository implements NotionModelDefinit
     return row;
   }
 
+  async deleteDefinition(modelKey: string): Promise<void> {
+    await getPrismaClient().notionModelDefinition.delete({
+      where: { modelKey },
+    });
+  }
+
   async addField(input: AddNotionModelFieldInput): Promise<NotionModelField> {
     const model = await getPrismaClient().notionModelDefinition.findUnique({
       where: { modelKey: input.modelKey },

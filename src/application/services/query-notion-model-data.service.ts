@@ -13,6 +13,7 @@ export class QueryNotionModelDataService {
   async queryPages(input: {
     dataSourceId: string;
     limit: number;
+    includeBlocks?: boolean;
   }): Promise<Array<Record<string, unknown>>> {
     const normalizedLimit = Math.min(Math.max(Math.floor(input.limit), 1), 500);
     const pages: Array<Record<string, unknown>> = [];
@@ -33,6 +34,22 @@ export class QueryNotionModelDataService {
       cursor = response.next_cursor;
     }
 
-    return pages;
+    if (!input.includeBlocks) {
+      return pages;
+    }
+
+    return Promise.all(
+      pages.map(async (page) => {
+        const pageId = typeof page.id === "string" ? page.id.trim() : "";
+        if (!pageId) {
+          return page;
+        }
+        const children = await this.notionClient.retrieveAllBlockChildren(pageId);
+        return {
+          ...page,
+          __blocks: children.results,
+        };
+      })
+    );
   }
 }

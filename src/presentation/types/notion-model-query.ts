@@ -17,6 +17,7 @@ export type TypedFieldValue =
   | number
   | boolean
   | string[]
+  | Array<Record<string, unknown>>
   | Array<{ name: string | null; type: "file" | "external" | null; url: string | null }>
   | { start: string | null; end: string | null }
   | { emoji: string | null; url: string | null }

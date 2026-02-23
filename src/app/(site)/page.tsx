@@ -29,12 +29,14 @@ export default async function HomePage() {
       }))
     : [];
   const socialLinks: SocialLink[] = mediaLinksResponse.ok
-    ? mediaLinksResponse.data.rows.map((row) => ({
-        label: readStringBySuffix(row, "label") ?? "",
-        url: readStringBySuffix(row, "url") ?? "",
-        platform: readStringBySuffix(row, "platform") ?? "",
-        logo: readIconBySuffix(row, "logo"),
-      }))
+    ? mediaLinksResponse.data.rows
+        .filter((row) => readOptionalBooleanBySuffix(row, "showOnWebsite") !== false)
+        .map((row) => ({
+          label: readStringBySuffix(row, "label") ?? "",
+          url: readStringBySuffix(row, "url") ?? "",
+          platform: readStringBySuffix(row, "platform") ?? "",
+          logo: readIconBySuffix(row, "logo"),
+        }))
     : [];
 
   return <HomeLanding latestPosts={latestPosts} projects={projects} socialLinks={socialLinks} />;
@@ -56,6 +58,18 @@ function readStringArrayBySuffix(row: Record<string, TypedFieldValue>, suffix: s
     }
   }
   return [];
+}
+
+function readOptionalBooleanBySuffix(
+  row: Record<string, TypedFieldValue>,
+  suffix: string
+): boolean | null {
+  for (const [key, value] of Object.entries(row)) {
+    if (key.endsWith(`.${suffix}`) && typeof value === "boolean") {
+      return value;
+    }
+  }
+  return null;
 }
 
 function readIconBySuffix(
